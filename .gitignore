@@ -1,0 +1,25 @@
+# Python
+   __pycache__/
+   *.py[cod]
+   *$py.class
+   *.so
+   .Python
+   env/
+   venv/
+   
+   # API keys and secrets
+   config.py
+   secrets.json
+   *.env
+   
+   # IDE
+   .vscode/
+   .idea/
+   
+   # Logs
+   *.log
+   logs/
+   
+   # Trading data
+   trades.db
+   *.csv
