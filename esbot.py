@@ -1,6 +1,6 @@
 """
 ES Automated Trading Bot
-Simple Moving Average Crossover Strategy with TP/SL
+Simple Moving Average Crossover Strategy with TP/SL and PnL
 """
 
 import time
@@ -20,7 +20,7 @@ class TradingBot:
     def __init__(self):
         self.data_handler = DataHandler(symbol="ES")
         self.strategy = Strategy(fast_period=10, slow_period=30)
-        self.risk_manager = RiskManager(stop_loss_points=20, take_profit_points=30)
+        self.risk_manager = RiskManager(stop_loss_points=20, take_profit_points=30, max_position_size=1)
         self.broker = BrokerInterface(paper_trade=True)
         self.visualizer = Visualizer(self.strategy)
 
@@ -62,7 +62,14 @@ class TradingBot:
                     price
                 )
 
+                # Place order
                 self.broker.place_order(action, position_size, "ES", price)
+
+                # Log entry with LONG/SHORT
+                position_type = "LONG" if action == "BUY" else "SHORT"
+                print(f"\n{'='*50}")
+                print(f"ORDER EXECUTED: {action} {position_size} ES @ ${price:.2f} | Position: {position_type}")
+                print(f"{'='*50}\n")
 
                 # Update state
                 self.strategy.position = 1 if action == "BUY" else -1
@@ -78,18 +85,30 @@ class TradingBot:
         # 3️⃣ EXIT LOGIC (Take Profit / Stop Loss)
         if self.strategy.position != 0:
             current_price = self.data_handler.get_latest_price()
-            exit_reason = self.risk_manager.check_exit(
-                current_price,
-                self.strategy.position
-            )
+            exit_reason = self.risk_manager.check_exit(current_price, self.strategy.position)
 
             if exit_reason:
                 exit_action = "SELL" if self.strategy.position == 1 else "BUY"
 
+                # Calculate PnL in points
+                if self.strategy.position == 1:  # LONG
+                    pnl_points = current_price - self.risk_manager.entry_price
+                elif self.strategy.position == -1:  # SHORT
+                    pnl_points = self.risk_manager.entry_price - current_price
+
+                # Convert points to $ (ES = $50 per point)
+                pnl_dollars = pnl_points * 50
+
+                # Print exit info
                 print(f"\n⚠ EXIT ({exit_reason}) at ${current_price:.2f}")
+                print(f"{'='*50}")
+                print(f"ORDER EXECUTED: {exit_action} 1 ES @ ${current_price:.2f} | PnL: ${pnl_dollars:.2f}")
+                print(f"{'='*50}\n")
+
+                # Place the order
                 self.broker.place_order(exit_action, 1, "ES", current_price)
 
-                # Reset state
+                # Reset position
                 self.strategy.position = 0
                 self.risk_manager.entry_price = None
 

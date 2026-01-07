@@ -29,8 +29,9 @@ class BrokerInterface:
         }
         self.orders.append(order)
         
+        position_type = "LONG" if action == "BUY" else "SHORT"
         print(f"\n{'='*50}")
-        print(f"ORDER EXECUTED: {action} {quantity} {symbol} @ ${price:.2f}")
+        print(f"ORDER EXECUTED: {action} {quantity} {symbol} @ ${price:.2f} | Position: {position_type}")
         print(f"{'='*50}\n")
         
         return order

@@ -17,7 +17,7 @@ class RiskManager:
             return None
 
         # LONG
-        if position == 1:
+        if position == 1: 
             if current_price >= self.entry_price + self.take_profit_points:
                 return "TAKE_PROFIT"
             if current_price <= self.entry_price - self.stop_loss_points:
