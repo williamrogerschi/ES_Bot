@@ -5,7 +5,7 @@ Simple Moving Average Crossover Strategy
 
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedata
+from datetime import datetime, timedelta
 import time
 import json
 
