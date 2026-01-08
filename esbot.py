@@ -49,10 +49,8 @@ class TradingBot:
     def run_strategy_cycle(self):
         """Run one cycle of the strategy"""
 
-        # 1️⃣ Calculate indicators & signals
         data = self.strategy.calculate_signals(self.data_handler.data)
 
-        # 2️⃣ ENTRY LOGIC (only if flat)
         if self.strategy.position == 0:
             action, price = self.strategy.check_entry_exit(data)
 
@@ -82,7 +80,6 @@ class TradingBot:
                     "size": position_size
                 })
 
-        # 3️⃣ EXIT LOGIC (Take Profit / Stop Loss)
         if self.strategy.position != 0:
             current_price = self.data_handler.get_latest_price()
             exit_reason = self.risk_manager.check_exit(current_price, self.strategy.position)
@@ -112,7 +109,6 @@ class TradingBot:
                 self.strategy.position = 0
                 self.risk_manager.entry_price = None
 
-        # 4️⃣ Visualization
         self.visualizer.plot(data)
 
     def start(self, run_once=False):
@@ -182,7 +178,6 @@ class TradingBot:
         }
 
 
-# ------------------- RUN BOT -------------------
 if __name__ == "__main__":
     bot = TradingBot()
     bot.start(run_once=False)
