@@ -10,7 +10,7 @@ from datetime import datetime
 from dataHandler import DataHandler
 from strategy import Strategy
 from riskManager import RiskManager
-from broker import BrokerInterface
+from ibkrBroker import IBKRBroker
 from visualizer import Visualizer
 
 
@@ -21,7 +21,7 @@ class TradingBot:
         self.data_handler = DataHandler(symbol="ES")
         self.strategy = Strategy(fast_period=10, slow_period=30)
         self.risk_manager = RiskManager(stop_loss_points=20, take_profit_points=30, max_position_size=1)
-        self.broker = BrokerInterface(paper_trade=True)
+        self.broker = IBKRBroker(paper=True)
         self.visualizer = Visualizer(self.strategy)
 
         self.is_running = False
@@ -41,8 +41,18 @@ class TradingBot:
 
         # Load initial mock data
         print("Loading historical data...")
-        self.data_handler.generate_mock_data(periods=100, interval_minutes=5)
-        print(f"✓ Loaded {len(self.data_handler.data)} bars\n")
+
+        # If IBKR is connected, load real historical ES bars
+        if self.broker.connected:
+            bars = self.broker.get_historical_bars(symbol="ES", duration="2 D", bar_size="5 mins")
+            self.data_handler.load_from_ibkr(bars)
+            print(f"✓ Loaded {len(self.data_handler.data)} bars from IBKR")
+        else:
+            # Fallback: generate mock data
+            self.data_handler.generate_mock_data(periods=100, interval_minutes=5)
+            print(f"✓ Loaded {len(self.data_handler.data)} bars (mock data)")
+
+
 
         return True
 

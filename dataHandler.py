@@ -34,6 +34,17 @@ class DataHandler:
         
         return self.data
     
+    def load_from_ibkr(self, bars):
+        """Load historical bars from IBKR into DataFrame"""
+        self.data = pd.DataFrame([{
+            'timestamp': bar.date,
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume
+        } for bar in bars])
+    
     def get_latest_price(self):
         """Get the most recent price"""
         if len(self.data) > 0:
