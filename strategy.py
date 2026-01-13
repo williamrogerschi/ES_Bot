@@ -1,22 +1,27 @@
+# strategy.py
 import pandas as pd
 
 class MovingAverageCrossoverStrategy:
-    def __init__(self, fast_period=10, slow_period=30):
-        self.fast_period = fast_period
-        self.slow_period = slow_period
-        self.position = 0
-        self.name = "Moving Average Crossover"
+    def __init__(self, short_window=5, long_window=20):
+        self.short_window = short_window
+        self.long_window = long_window
 
-    def calculate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
-        if data.empty or 'close' not in data.columns:
-            return data
+    def generate_signal(self, bars: pd.DataFrame):
+        """
+        bars: pd.DataFrame with columns ['timestamp', 'open', 'high', 'low', 'close', 'volume']
+        returns: 'BUY', 'SELL', or 'HOLD'
+        """
+        if len(bars) < self.long_window:
+            return 'HOLD'  # not enough data
 
-        data['MA_fast'] = data['close'].rolling(window=self.fast_period, min_periods=1).mean()
-        data['MA_slow'] = data['close'].rolling(window=self.slow_period, min_periods=1).mean()
+        bars = bars.copy()
+        bars['short_ma'] = bars['close'].rolling(self.short_window).mean()
+        bars['long_ma'] = bars['close'].rolling(self.long_window).mean()
 
-        data['signal'] = 0
-        data.loc[data['MA_fast'] > data['MA_slow'], 'signal'] = 1
-        data.loc[data['MA_fast'] < data['MA_slow'], 'signal'] = -1
-
-        self.position = data['signal'].iloc[-1]
-        return data
+        # Check crossover in the last row
+        if bars['short_ma'].iloc[-2] <= bars['long_ma'].iloc[-2] and bars['short_ma'].iloc[-1] > bars['long_ma'].iloc[-1]:
+            return 'BUY'
+        elif bars['short_ma'].iloc[-2] >= bars['long_ma'].iloc[-2] and bars['short_ma'].iloc[-1] < bars['long_ma'].iloc[-1]:
+            return 'SELL'
+        else:
+            return 'HOLD'

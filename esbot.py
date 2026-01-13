@@ -1,44 +1,63 @@
+# esBot.py
 import time
 from ibkrBroker import IBKRBroker
 from strategy import MovingAverageCrossoverStrategy
-from dataHandler import DataHandler
+from riskManager import RiskManager
 
-class TradingBot:
-    def __init__(self, symbol="ES"):
-        self.symbol = symbol
-        self.ibkr = IBKRBroker(symbol=self.symbol, paper=True)
-        self.data_handler = DataHandler(symbol=self.symbol)
+class ESBot:
+    def __init__(self):
+        self.broker = IBKRBroker()
         self.strategy = MovingAverageCrossoverStrategy()
-        self.is_running = False
+        self.risk_manager = RiskManager(stop_points=2, target_points=4)
+        self.position = 0
+        self.entry_price = None
 
-    def initialize(self):
-        if not self.ibkr.connect():
-            return False
-        contract = self.ibkr.get_front_month_contract()
-        bars = self.ibkr.get_historical_bars(duration="2 D", bar_size="5 mins")
-        if bars.empty:
-            return False
-        self.data_handler.load_from_ibkr(bars)
-        print("Bot is now running...\n")
-        return True
-
-    def run_cycle(self):
-        price = self.data_handler.get_latest_price()
-        self.strategy.calculate_signals(self.data_handler.data)
-        position = self.strategy.position
-        print(f"[Price: ${price:.2f} | Position: {position}]")
-
-    def start(self, run_once=False, cycle_delay=5):
-        if not self.initialize():
-            print("Bot initialization failed. Exiting.")
+    def start(self):
+        if not self.broker.connect():
+            print("Failed to connect to IBKR")
             return
-        self.is_running = True
-        while self.is_running:
-            self.run_cycle()
-            if run_once:
-                break
-            time.sleep(cycle_delay)
+
+        bars = self.broker.get_historical_bars(duration="2 D", bar_size="1 min")
+        if bars.empty:
+            print("No historical bars to trade")
+            return
+
+        print("Bot is now running...\n")
+
+        for idx in range(len(bars)):
+            current_bar = bars.iloc[idx]
+            price = current_bar['close']
+
+            # Check SL/TP first
+            if self.position != 0:
+                exit_signal = self.risk_manager.check_exit(self.entry_price, price, self.position)
+                if exit_signal:
+                    print(f"Closed position at {price} due to {exit_signal}")
+                    self.position = 0
+                    self.entry_price = None
+                    # After closing, skip new signal on same bar
+                    print(f"[Price: ${price} | Position: {self.position}]")
+                    continue
+
+            # Generate signal only if flat
+            if self.position == 0:
+                action = self.strategy.generate_signal(bars[:idx+1])
+                if action == 'BUY':
+                    self.position = 1
+                    self.entry_price = price
+                    print(f"Opened LONG position at {price}")
+                elif action == 'SELL':
+                    self.position = -1
+                    self.entry_price = price
+                    print(f"Opened SHORT position at {price}")
+
+            # Print status
+            print(f"[Price: ${price} | Position: {self.position}]")
+            time.sleep(1)  # simulate bar stepping
+
+        self.broker.disconnect()
+
 
 if __name__ == "__main__":
-    bot = TradingBot(symbol="ES")
-    bot.start(run_once=False, cycle_delay=5)
+    bot = ESBot()
+    bot.start()
