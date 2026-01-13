@@ -1,61 +1,44 @@
 import time
 from ibkrBroker import IBKRBroker
-from dataHandler import DataHandler
 from strategy import MovingAverageCrossoverStrategy
-from riskManager import RiskManager
-import pandas as pd
+from dataHandler import DataHandler
 
-bot_name = "ES Trading Bot"
-symbol = "ES"
+class TradingBot:
+    def __init__(self, symbol="ES"):
+        self.symbol = symbol
+        self.ibkr = IBKRBroker(symbol=self.symbol, paper=True)
+        self.data_handler = DataHandler(symbol=self.symbol)
+        self.strategy = MovingAverageCrossoverStrategy()
+        self.is_running = False
 
-# Initialize modules
-ibkr = IBKRBroker(symbol=symbol, paper=True)
-data_handler = DataHandler(symbol)
-strategy = MovingAverageCrossoverStrategy()
-risk_manager = RiskManager()
+    def initialize(self):
+        if not self.ibkr.connect():
+            return False
+        contract = self.ibkr.get_front_month_contract()
+        bars = self.ibkr.get_historical_bars(duration="2 D", bar_size="5 mins")
+        if bars.empty:
+            return False
+        self.data_handler.load_from_ibkr(bars)
+        print("Bot is now running...\n")
+        return True
 
-print(f"Initializing {bot_name}...")
-print(f"Strategy: {strategy.name}")
-print(f"Mode: {'Paper Trading'}\n")
+    def run_cycle(self):
+        price = self.data_handler.get_latest_price()
+        self.strategy.calculate_signals(self.data_handler.data)
+        position = self.strategy.position
+        print(f"[Price: ${price:.2f} | Position: {position}]")
 
-# Connect
-if not ibkr.connect():
-    print("❌ IBKR connection failed. Exiting.")
-    exit()
+    def start(self, run_once=False, cycle_delay=5):
+        if not self.initialize():
+            print("Bot initialization failed. Exiting.")
+            return
+        self.is_running = True
+        while self.is_running:
+            self.run_cycle()
+            if run_once:
+                break
+            time.sleep(cycle_delay)
 
-# Load historical bars
-bars = ibkr.get_historical_bars(duration="2 D", bar_size="5 mins")
-if bars.empty:
-    print("❌ No historical bars received. Exiting.")
-    exit()
-
-data_handler.load_from_ibkr(bars)
-
-# Main loop (simulating live bars)
-cycle = 1
-while True:
-    bar = data_handler.get_next_bar()
-    if bar is None:
-        print("✓ Reached end of historical data. Stopping simulation.")
-        break
-
-    # Append bar to dataframe for strategy
-    df = data_handler.data.iloc[:data_handler.index]
-    signal = strategy.calculate_signal(df)
-
-    # Check and update position
-    trade_occurred = risk_manager.update_position(signal)
-    if trade_occurred:
-        if signal == 1:
-            print(f"Opened LONG position at {bar['close']}")
-        elif signal == -1:
-            print(f"Opened SHORT position at {bar['close']}")
-        else:
-            print(f"Closed position at {bar['close']}")
-
-    # Print status
-    print(f"[{cycle}] Price: ${bar['close']} | Position: {risk_manager.position}")
-    cycle += 1
-    time.sleep(1)  # simulate 1-second delay between bars
-
-ibkr.disconnect()
+if __name__ == "__main__":
+    bot = TradingBot(symbol="ES")
+    bot.start(run_once=False, cycle_delay=5)

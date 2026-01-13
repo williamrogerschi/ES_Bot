@@ -7,14 +7,16 @@ class MovingAverageCrossoverStrategy:
         self.position = 0
         self.name = "Moving Average Crossover"
 
-    def calculate_signal(self, data: pd.DataFrame):
-        """Return 1 for long, -1 for short, 0 for hold"""
-        if len(data) < self.fast_period:
-            return 0
-        fast_ma = data['close'].rolling(self.fast_period).mean().iloc[-1]
-        slow_ma = data['close'].rolling(self.slow_period).mean().iloc[-1]
-        if fast_ma > slow_ma:
-            return 1
-        elif fast_ma < slow_ma:
-            return -1
-        return 0
+    def calculate_signals(self, data: pd.DataFrame) -> pd.DataFrame:
+        if data.empty or 'close' not in data.columns:
+            return data
+
+        data['MA_fast'] = data['close'].rolling(window=self.fast_period, min_periods=1).mean()
+        data['MA_slow'] = data['close'].rolling(window=self.slow_period, min_periods=1).mean()
+
+        data['signal'] = 0
+        data.loc[data['MA_fast'] > data['MA_slow'], 'signal'] = 1
+        data.loc[data['MA_fast'] < data['MA_slow'], 'signal'] = -1
+
+        self.position = data['signal'].iloc[-1]
+        return data
