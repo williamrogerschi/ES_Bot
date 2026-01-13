@@ -1,82 +1,69 @@
-from ib_insync import *
+from ib_insync import IB, Future
+import pandas as pd
+from datetime import datetime
 
 class IBKRBroker:
-    def __init__(self, paper=True):
-        self.paper = paper
+    def __init__(self, symbol="ES", paper=True, use_live_data=False):
         self.ib = IB()
+        self.symbol = symbol
+        self.paper = paper
+        self.use_live_data = use_live_data
         self.connected = False
+        self.contract = None
+        self.historical_data = pd.DataFrame()
+        self.live_data = pd.DataFrame()
 
-def connect(self):
-    port = 7497 if self.paper else 7496
+    def connect(self, host='127.0.0.1', port=7497):
+        self.connected = self.ib.connect(host, port, clientId=1)
+        if self.connected:
+            print(f"✓ Connected to IBKR on port {port} (Paper={self.paper})")
+        else:
+            print(f"❌ Failed to connect to IBKR on port {port} (Paper={self.paper})")
+        return self.connected
 
-    try:
-        self.ib.connect(
-            host='127.0.0.1',
-            port=port,
-            clientId=1,
-            timeout=5
+    def get_front_month_contract(self):
+        contract = Future(symbol=self.symbol, exchange="CME")
+        details = self.ib.reqContractDetails(contract)
+        if not details:
+            print("⚠ No front-month contract found")
+            return None
+        # Sort by lastTradeDateOrContractMonth ascending
+        sorted_details = sorted(details, key=lambda x: x.contract.lastTradeDateOrContractMonth)
+        self.contract = sorted_details[0].contract
+        print(f"✓ Front-month contract: {self.contract.localSymbol} ({self.contract.lastTradeDateOrContractMonth})")
+        return self.contract
+
+    def get_historical_bars(self, duration="2 D", bar_size="5 mins", what_to_show="TRADES"):
+        if not self.contract:
+            self.get_front_month_contract()
+        if not self.contract:
+            return pd.DataFrame()
+        bars = self.ib.reqHistoricalData(
+            self.contract,
+            endDateTime='',
+            durationStr=duration,
+            barSizeSetting=bar_size,
+            whatToShow=what_to_show,
+            useRTH=False,
+            formatDate=1
         )
-    except Exception as e:
-        print("❌ IBKR connection failed:", e)
-        return False
+        if not bars:
+            print("⚠ No bars returned from IBKR")
+            return pd.DataFrame()
+        df = pd.DataFrame([{
+            'timestamp': bar.date if isinstance(bar.date, datetime) else datetime.strptime(bar.date, "%Y%m%d %H:%M:%S"),
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume
+        } for bar in bars])
+        df.sort_values('timestamp', inplace=True)
+        df.reset_index(drop=True, inplace=True)
+        self.historical_data = df
+        print(f"✓ Loaded {len(df)} historical bars from IBKR")
+        return df
 
-    if not self.ib.isConnected():
-        print("❌ IBKR not connected (no API Ready)")
-        return False
-
-    self.connected = True
-    print(f"✓ Connected to IBKR on port {port} (Paper={self.paper})")
-    return True
-
-def get_historical_bars(self, symbol="ES", duration="2 D", bar_size="5 mins"):
-    contract = Future(
-        symbol=symbol,
-        lastTradeDateOrContractMonth='',
-        exchange='CME',
-        currency='USD'
-    )
-
-    self.ib.qualifyContracts(contract)
-
-    bars = self.ib.reqHistoricalData(
-        contract,
-        endDateTime='',
-        durationStr=duration,
-        barSizeSetting=bar_size,
-        whatToShow='TRADES',
-        useRTH=False,
-        formatDate=1
-    )
-
-    return bars
-
-
-
-    def get_account_balance(self):
-        account = self.ib.managedAccounts()[0]
-        values = self.ib.accountValues(account)
-        for v in values:
-            if v.tag == 'AvailableFunds':
-                return float(v.value)
-        return 0.0
-
-    def place_order(self, action, quantity, symbol, price):
-        contract = Future(
-            symbol='ES',
-            lastTradeDateOrContractMonth='202503',
-            exchange='CME',
-            currency='USD'
-        )
-
-        self.ib.qualifyContracts(contract)
-
-        order = MarketOrder(action, quantity)
-        trade = self.ib.placeOrder(contract, order)
-
-        trade.filledEvent += lambda t: print(
-            f"\n{'='*50}\n"
-            f"ORDER EXECUTED: {action} {quantity} {symbol}\n"
-            f"{'='*50}\n"
-        )
-
-        return trade
+    def disconnect(self):
+        self.ib.disconnect()
+        print("✓ Disconnected from IBKR")
