@@ -2,8 +2,8 @@
 class RiskManager:
     def __init__(self, stop_points=2, target_points=4):
         """
-        stop_points: number of points for stop loss
-        target_points: number of points for take profit
+        stop_points: points for stop loss
+        target_points: points for take profit
         """
         self.stop_points = stop_points
         self.target_points = target_points
@@ -13,7 +13,7 @@ class RiskManager:
         entry_price: float
         current_price: float
         position: 1 for long, -1 for short
-        Returns: 'EXIT' or None
+        Returns: 'EXIT_STOP', 'EXIT_TARGET', or None
         """
         if position == 1:  # long
             if current_price <= entry_price - self.stop_points:

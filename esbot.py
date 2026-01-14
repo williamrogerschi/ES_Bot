@@ -1,5 +1,5 @@
 # esBot.py
-import time
+import asyncio
 from ibkrBroker import IBKRBroker
 from strategy import MovingAverageCrossoverStrategy
 from riskManager import RiskManager
@@ -12,36 +12,36 @@ class ESBot:
         self.position = 0
         self.entry_price = None
 
-    def start(self):
-        if not self.broker.connect():
+    async def start(self):
+        # Connect to IBKR
+        if not await self.broker.connect_async():
             print("Failed to connect to IBKR")
             return
 
-        bars = self.broker.get_historical_bars(duration="2 D", bar_size="1 min")
-        if bars.empty:
-            print("No historical bars to trade")
+        # Load front-month contract
+        if not await self.broker.get_front_month_contract_async():
+            print("No contract loaded")
             return
 
         print("Bot is now running...\n")
 
-        for idx in range(len(bars)):
-            current_bar = bars.iloc[idx]
-            price = current_bar['close']
+        # Subscribe to live bars (1-min)
+        async for bar in self.broker.stream_live_bars(bar_size="1 min"):
+            price = bar['close']
 
-            # Check SL/TP first
+            # Check stop loss / take profit
             if self.position != 0:
                 exit_signal = self.risk_manager.check_exit(self.entry_price, price, self.position)
                 if exit_signal:
                     print(f"Closed position at {price} due to {exit_signal}")
                     self.position = 0
                     self.entry_price = None
-                    # After closing, skip new signal on same bar
                     print(f"[Price: ${price} | Position: {self.position}]")
                     continue
 
-            # Generate signal only if flat
+            # Generate signal if flat
             if self.position == 0:
-                action = self.strategy.generate_signal(bars[:idx+1])
+                action = self.strategy.generate_signal(self.broker.recent_bars)
                 if action == 'BUY':
                     self.position = 1
                     self.entry_price = price
@@ -53,11 +53,9 @@ class ESBot:
 
             # Print status
             print(f"[Price: ${price} | Position: {self.position}]")
-            time.sleep(1)  # simulate bar stepping
 
-        self.broker.disconnect()
-
+        await self.broker.disconnect_async()
 
 if __name__ == "__main__":
     bot = ESBot()
-    bot.start()
+    asyncio.run(bot.start())
