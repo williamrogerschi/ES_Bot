@@ -37,30 +37,34 @@ class IBKRBroker:
         print(f"✓ Front-month contract: {self.contract.localSymbol} ({self.contract.lastTradeDateOrContractMonth})")
         return True
 
-    async def stream_live_bars(self, bar_size="1 min", what_to_show="TRADES"):
+    async def stream_live_bars(self):
         """
-        Stream live bars indefinitely.
+        Streams 5-second real-time bars using ib-insync.
         """
-        if not self.contract:
-            raise ValueError("Contract not loaded")
 
-        # Subscribe to IBKR bars
-        bars = self.ib.reqRealTimeBars(self.contract, barSize=bar_size, whatToShow=what_to_show, useRTH=True)
-        self.recent_bars = pd.DataFrame()
+        BAR_SECONDS = 5  # IBKR hard limit
 
-        while True:
-            await asyncio.sleep(1)
-            df = pd.DataFrame([{
-                'timestamp': bar.time,
-                'open': bar.open,
-                'high': bar.high,
-                'low': bar.low,
-                'close': bar.close,
-                'volume': bar.volume
-            } for bar in bars])
+        # Request real-time bars (ib-insync style)
+        bars = self.ib.reqRealTimeBars(
+            self.contract,
+            BAR_SECONDS,
+            'TRADES',
+            False
+        )
 
-            if not df.empty:
-                df.sort_values('timestamp', inplace=True)
-                df.reset_index(drop=True, inplace=True)
-                self.recent_bars = df
-                yield df.iloc[-1]  # yield last bar only
+        try:
+            while True:
+                # Wait for the next bar update
+                await bars.updateEvent
+
+                bar = bars[-1]
+                yield {
+                    'open': bar.open,
+                    'high': bar.high,
+                    'low': bar.low,
+                    'close': bar.close,
+                    'time': bar.time
+                }
+
+        finally:
+            self.ib.cancelRealTimeBars(bars)

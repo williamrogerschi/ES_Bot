@@ -26,7 +26,7 @@ class ESBot:
         print("Bot is now running...\n")
 
         # Subscribe to live bars (1-min)
-        async for bar in self.broker.stream_live_bars(bar_size="1 min"):
+        async for bar in self.broker.stream_live_bars():
             price = bar['close']
 
             # Check stop loss / take profit

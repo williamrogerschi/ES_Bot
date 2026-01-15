@@ -7,10 +7,7 @@ class MovingAverageCrossoverStrategy:
         self.long_window = long_window
 
     def generate_signal(self, bars: pd.DataFrame):
-        """
-        bars: pd.DataFrame with columns ['timestamp', 'open', 'high', 'low', 'close', 'volume']
-        returns: 'BUY', 'SELL', or 'HOLD'
-        """
+
         if len(bars) < self.long_window:
             return 'HOLD'  # not enough data
 
