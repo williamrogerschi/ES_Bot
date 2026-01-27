@@ -1,75 +1,69 @@
-# grid.py
+# grid.py (dynamic first order only)
 import asyncio
-from ib_insync import LimitOrder
 
 class GridStrategy:
-    def __init__(self, broker, grid_spacing=1, quantity=1):
+    def __init__(self, broker, grid_spacing=1, quantity=1, ma_period=3):
         self.broker = broker
         self.grid_spacing = grid_spacing
         self.quantity = quantity
-        self.active_buy = None
-        self.active_sell = None
+        self.ma_period = ma_period
+        self.active_order = None
 
     async def start(self):
         """
-        Start the oscillating grid.
+        Start the dynamic grid: place only one first order based on bias.
         """
-        price = self.broker.partial_bar['close'] if self.broker.partial_bar else 0
-        if not price:
-            print("⚠ Waiting for initial price...")
-            while not self.broker.partial_bar:
-                await asyncio.sleep(0.1)
-            price = self.broker.partial_bar['close']
+        # Wait for initial price
+        while not self.broker.partial_bar:
+            await asyncio.sleep(0.1)
+        price = self.broker.partial_bar['close']
 
-        await self._place_initial_orders(price)
+        # Determine first order dynamically
+        first_order = self._determine_first_order()
+        await self._place_first_order(price, first_order)
 
         # Main loop
         while True:
             await asyncio.sleep(0.1)
-            await self._check_fills()
+            await self._check_fill()
 
-    async def _place_initial_orders(self, price):
+    def _determine_first_order(self):
         """
-        Place one buy below and one sell above the current price.
+        Look at recent bars and moving average to decide BUY or SELL.
         """
-        buy_price = price - self.grid_spacing
-        sell_price = price + self.grid_spacing
+        if len(self.broker.recent_bars) < self.ma_period:
+            return "BUY"  # default if not enough bars
 
-        self.active_buy = await self.broker.place_limit_order("BUY", self.quantity, buy_price)
-        self.active_sell = await self.broker.place_limit_order("SELL", self.quantity, sell_price)
+        recent_close = self.broker.recent_bars['close'].iloc[-self.ma_period:]
+        ma = recent_close.mean()
+        current_price = self.broker.partial_bar['close']
 
-        print(f"✓ Placed initial buy at {buy_price}, sell at {sell_price}")
+        if current_price > ma:
+            return "SELL"
+        else:
+            return "BUY"
 
-    async def _check_fills(self):
+    async def _place_first_order(self, price, first_order):
         """
-        Check if either order filled and update the counter order.
+        Place only the first order (dynamic).
         """
-        # Buy filled
-        if self.active_buy and self.active_buy.isDone() and self.active_buy.orderStatus.status == "Filled":
-            filled_price = self.active_buy.order.lmtPrice
-            print(f"Order filled: BUY {self.quantity} @ {filled_price}")
+        if first_order == "BUY":
+            order_price = price - self.grid_spacing
+        else:
+            order_price = price + self.grid_spacing
 
-            # Cancel existing sell
-            if self.active_sell:
-                await self.broker.cancel_order(self.active_sell)
-                self.active_sell = None
+        self.active_order = await self.broker.place_limit_order(first_order, self.quantity, order_price)
+        print(f"✓ Placed first {first_order} order at {order_price}")
 
-            # Place new sell for profit-taking
-            new_sell_price = filled_price + self.grid_spacing
-            self.active_sell = await self.broker.place_limit_order("SELL", self.quantity, new_sell_price)
-            self.active_buy = None
+    async def _check_fill(self):
+        """
+        Check if the active order is filled. If so, place the counter-order.
+        """
+        if self.active_order and self.active_order.isDone() and self.active_order.orderStatus.status == "Filled":
+            filled_price = self.active_order.order.lmtPrice
+            action = "SELL" if self.active_order.order.action == "BUY" else "BUY"
+            new_price = filled_price + self.grid_spacing if action == "SELL" else filled_price - self.grid_spacing
 
-        # Sell filled
-        if self.active_sell and self.active_sell.isDone() and self.active_sell.orderStatus.status == "Filled":
-            filled_price = self.active_sell.order.lmtPrice
-            print(f"Order filled: SELL {self.quantity} @ {filled_price}")
-
-            # Cancel existing buy
-            if self.active_buy:
-                await self.broker.cancel_order(self.active_buy)
-                self.active_buy = None
-
-            # Place new buy for profit-taking
-            new_buy_price = filled_price - self.grid_spacing
-            self.active_buy = await self.broker.place_limit_order("BUY", self.quantity, new_buy_price)
-            self.active_sell = None
+            print(f"Order filled: {self.active_order.order.action} {self.quantity} @ {filled_price}")
+            self.active_order = await self.broker.place_limit_order(action, self.quantity, new_price)
+            print(f"Placed counter {action} order at {new_price}")
