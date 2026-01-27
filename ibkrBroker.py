@@ -1,4 +1,5 @@
-from ib_insync import IB, Future, MarketOrder
+# ibkrBroker.py
+from ib_insync import IB, Future, MarketOrder, LimitOrder, Trade
 import pandas as pd
 
 class IBKRBroker:
@@ -7,12 +8,12 @@ class IBKRBroker:
         self.symbol = symbol
         self.contract = None
         self.recent_bars = pd.DataFrame(columns=["time", "open", "high", "low", "close"])
-        self.partial_bar = None  # store real-time price info for immediate execution
+        self.partial_bar = None  # latest real-time price
+        self.active_orders = {}  # orderId -> Trade
 
     async def connect_async(self, host="127.0.0.1", port=7497):
         await self.ib.connectAsync(host, port, clientId=1)
         print("✓ Connected to IBKR")
-        return True
 
     async def disconnect_async(self):
         if self.ib.isConnected():
@@ -31,23 +32,28 @@ class IBKRBroker:
         print(f"✓ Front-month contract: {self.contract.localSymbol} ({self.contract.lastTradeDateOrContractMonth})")
         return True
 
-    async def place_market_order(self, action, quantity):
-        order = MarketOrder(action, quantity)
+    async def place_limit_order(self, action, quantity, price):
+        order = LimitOrder(action, quantity, price)
         order.tif = "GTC"
         order.outsideRth = True
         trade = self.ib.placeOrder(self.contract, order)
-        await trade.filledEvent
+        self.active_orders[trade.order.orderId] = trade
+        trade.filledEvent += lambda t: print(f"Order filled: {t.order.action} {t.order.totalQuantity} @ {t.order.lmtPrice}")
+        trade.cancelledEvent += lambda t: print(f"Order cancelled: {t}")
         return trade
 
-    async def stream_live_bars(self):
-        """Streams live 5-second bars but updates partial price for real-time execution."""
-        bars = self.ib.reqRealTimeBars(self.contract, 5, "TRADES", False)
+    async def cancel_order(self, trade: Trade):
+        if trade and trade.isActive():
+            self.ib.cancelOrder(trade.order)
+            if trade.order.orderId in self.active_orders:
+                del self.active_orders[trade.order.orderId]
+
+    async def stream_live_bars(self, bar_size=1):
+        bars = self.ib.reqRealTimeBars(self.contract, bar_size, "TRADES", False)
         try:
             while True:
                 await bars.updateEvent
                 bar = bars[-1]
-
-                # Update partial bar (latest real-time price)
                 self.partial_bar = {
                     "time": bar.time,
                     "open": bar.open_,
@@ -56,18 +62,18 @@ class IBKRBroker:
                     "close": bar.close
                 }
 
-                # Only add fully closed 1-minute bars to recent_bars
-                # Here we assume each bar is 1 minute; adjust if using 5-second bar aggregation
-                # Use bar.time as indicator of completion
                 if len(self.recent_bars) == 0 or bar.time != self.recent_bars['time'].iloc[-1]:
-                    self.recent_bars = pd.concat([self.recent_bars, pd.DataFrame([{
-                        "time": bar.time,
-                        "open": bar.open_,
-                        "high": bar.high,
-                        "low": bar.low,
-                        "close": bar.close
-                    }])], ignore_index=True)
+                    self.recent_bars = pd.concat(
+                        [self.recent_bars, pd.DataFrame([{
+                            "time": bar.time,
+                            "open": bar.open_,
+                            "high": bar.high,
+                            "low": bar.low,
+                            "close": bar.close
+                        }])],
+                        ignore_index=True
+                    )
 
-                yield self.partial_bar  # real-time price for immediate execution
+                yield self.recent_bars, self.partial_bar
         finally:
             self.ib.cancelRealTimeBars(bars)
