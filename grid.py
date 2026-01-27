@@ -1,69 +1,54 @@
-# grid.py (dynamic first order only)
+# grid.py
 import asyncio
 
 class GridStrategy:
-    def __init__(self, broker, grid_spacing=1, quantity=1, ma_period=3):
+    def __init__(self, broker, grid_spacing=1.0, scalp_points=1.0, min_bar_range=0.5):
         self.broker = broker
         self.grid_spacing = grid_spacing
-        self.quantity = quantity
-        self.ma_period = ma_period
-        self.active_order = None
+        self.scalp_points = scalp_points
+        self.min_bar_range = min_bar_range
+        self.active_trade = None
 
     async def start(self):
-        """
-        Start the dynamic grid: place only one first order based on bias.
-        """
-        # Wait for initial price
-        while not self.broker.partial_bar:
-            await asyncio.sleep(0.1)
-        price = self.broker.partial_bar['close']
+        async for bars, partial in self.broker.stream_live_bars():
+            last_bar = bars.iloc[-1]
+            o, h, l, c = last_bar.open, last_bar.high, last_bar.low, last_bar.close
+            bar_range = h - l
+            close_pct = (c - l) / bar_range if bar_range > 0 else 0
 
-        # Determine first order dynamically
-        first_order = self._determine_first_order()
-        await self._place_first_order(price, first_order)
+            print(f"[BAR] O:{o} H:{h} L:{l} C:{c} Range:{bar_range} Close%:{close_pct:.2f}")
 
-        # Main loop
-        while True:
-            await asyncio.sleep(0.1)
-            await self._check_fill()
+            # Skip if there is already an active trade
+            if self.active_trade:
+                continue
 
-    def _determine_first_order(self):
-        """
-        Look at recent bars and moving average to decide BUY or SELL.
-        """
-        if len(self.broker.recent_bars) < self.ma_period:
-            return "BUY"  # default if not enough bars
+            # Only consider strong bars with minimum range
+            if bar_range < self.min_bar_range:
+                continue
 
-        recent_close = self.broker.recent_bars['close'].iloc[-self.ma_period:]
-        ma = recent_close.mean()
-        current_price = self.broker.partial_bar['close']
+            # Strong long bar (close near high)
+            if close_pct >= 0.95:
+                limit_price = c - 0.05  # slightly below close
+                print(f"Strong bar detected: BUY at {c}, placing limit at {limit_price}")
+                self.active_trade = await self.broker.place_limit_order("BUY", 1, limit_price)
+                # After fill, place take profit
+                await self._place_take_profit("BUY", self.active_trade.order.lmtPrice)
 
-        if current_price > ma:
-            return "SELL"
+            # Strong short bar (close near low)
+            elif close_pct <= 0.05:
+                limit_price = c + 0.05  # slightly above close
+                print(f"Strong bar detected: SELL at {c}, placing limit at {limit_price}")
+                self.active_trade = await self.broker.place_limit_order("SELL", 1, limit_price)
+                await self._place_take_profit("SELL", self.active_trade.order.lmtPrice)
+
+    async def _place_take_profit(self, action, entry_price):
+        if action == "BUY":
+            tp_price = entry_price + self.scalp_points
+            print(f"Placing take profit SELL at {tp_price}")
+            await self.broker.place_limit_order("SELL", 1, tp_price)
         else:
-            return "BUY"
+            tp_price = entry_price - self.scalp_points
+            print(f"Placing take profit BUY at {tp_price}")
+            await self.broker.place_limit_order("BUY", 1, tp_price)
 
-    async def _place_first_order(self, price, first_order):
-        """
-        Place only the first order (dynamic).
-        """
-        if first_order == "BUY":
-            order_price = price - self.grid_spacing
-        else:
-            order_price = price + self.grid_spacing
-
-        self.active_order = await self.broker.place_limit_order(first_order, self.quantity, order_price)
-        print(f"✓ Placed first {first_order} order at {order_price}")
-
-    async def _check_fill(self):
-        """
-        Check if the active order is filled. If so, place the counter-order.
-        """
-        if self.active_order and self.active_order.isDone() and self.active_order.orderStatus.status == "Filled":
-            filled_price = self.active_order.order.lmtPrice
-            action = "SELL" if self.active_order.order.action == "BUY" else "BUY"
-            new_price = filled_price + self.grid_spacing if action == "SELL" else filled_price - self.grid_spacing
-
-            print(f"Order filled: {self.active_order.order.action} {self.quantity} @ {filled_price}")
-            self.active_order = await self.broker.place_limit_order(action, self.quantity, new_price)
-            print(f"Placed counter {action} order at {new_price}")
+        self.active_trade = None  # reset for next trade
