@@ -1,54 +1,47 @@
 # grid.py
 import asyncio
+from datetime import datetime, timedelta
 
 class GridStrategy:
-    def __init__(self, broker, grid_spacing=1.0, scalp_points=1.0, min_bar_range=0.5):
+    def __init__(self, broker, trader, scalp_points=1.0, min_bar_range=0.5):
         self.broker = broker
-        self.grid_spacing = grid_spacing
+        self.trader = trader
         self.scalp_points = scalp_points
         self.min_bar_range = min_bar_range
         self.active_trade = None
 
     async def start(self):
-        async for bars, partial in self.broker.stream_live_bars():
+        async for bars in self.broker.stream_tick_bars():
+            if bars.empty:
+                continue
+
             last_bar = bars.iloc[-1]
             o, h, l, c = last_bar.open, last_bar.high, last_bar.low, last_bar.close
             bar_range = h - l
             close_pct = (c - l) / bar_range if bar_range > 0 else 0
 
-            print(f"[BAR] O:{o} H:{h} L:{l} C:{c} Range:{bar_range} Close%:{close_pct:.2f}")
-
-            # Skip if there is already an active trade
+            # Skip if already active trade
             if self.active_trade:
                 continue
 
-            # Only consider strong bars with minimum range
             if bar_range < self.min_bar_range:
                 continue
 
-            # Strong long bar (close near high)
+            # Strong long bar
             if close_pct >= 0.95:
-                limit_price = c - 0.05  # slightly below close
-                print(f"Strong bar detected: BUY at {c}, placing limit at {limit_price}")
-                self.active_trade = await self.broker.place_limit_order("BUY", 1, limit_price)
-                # After fill, place take profit
-                await self._place_take_profit("BUY", self.active_trade.order.lmtPrice)
+                limit_price = c - 0.05
+                print(f"[ENTRY] Strong CLOSED bar → BUY Close:{c} Limit:{limit_price}")
+                trade = self.trader.place_limit_order_no_wait("BUY", 1, limit_price)
+                self.active_trade = trade
+                await self.trader.place_take_profit("BUY", limit_price, self.scalp_points)
 
-            # Strong short bar (close near low)
+            # Strong short bar
             elif close_pct <= 0.05:
-                limit_price = c + 0.05  # slightly above close
-                print(f"Strong bar detected: SELL at {c}, placing limit at {limit_price}")
-                self.active_trade = await self.broker.place_limit_order("SELL", 1, limit_price)
-                await self._place_take_profit("SELL", self.active_trade.order.lmtPrice)
+                limit_price = c + 0.05
+                print(f"[ENTRY] Strong CLOSED bar → SELL Close:{c} Limit:{limit_price}")
+                trade = self.trader.place_limit_order_no_wait("SELL", 1, limit_price)
+                self.active_trade = trade
+                await self.trader.place_take_profit("SELL", limit_price, self.scalp_points)
 
-    async def _place_take_profit(self, action, entry_price):
-        if action == "BUY":
-            tp_price = entry_price + self.scalp_points
-            print(f"Placing take profit SELL at {tp_price}")
-            await self.broker.place_limit_order("SELL", 1, tp_price)
-        else:
-            tp_price = entry_price - self.scalp_points
-            print(f"Placing take profit BUY at {tp_price}")
-            await self.broker.place_limit_order("BUY", 1, tp_price)
-
-        self.active_trade = None  # reset for next trade
+            # Reset after trade
+            self.active_trade = None

@@ -1,46 +1,39 @@
 # esBot.py
 import asyncio
 from ibkrBroker import IBKRBroker
+from trades import Trader
 from grid import GridStrategy
 
 async def main():
-    # Initialize broker
-    broker = IBKRBroker()
-    print(f"Connecting to IBKR at 127.0.0.1:7497 (clientId=1)")
+    # --- Initialize broker ---
+    broker = IBKRBroker(symbol="ES")
     try:
         await broker.connect_async()
-        print("IBKR connected and contract resolved.")
     except Exception as e:
-        print("API connection failed:", e)
+        print("IBKR connection failed:", e)
         return
 
-    # Get front-month contract
+    # --- Get front-month contract ---
     try:
         success = await broker.get_front_month_contract_async()
         if not success:
-            print("Failed to resolve front-month contract.")
             await broker.disconnect_async()
             return
     except Exception as e:
-        print("Error fetching contract:", e)
+        print("Contract fetch failed:", e)
         await broker.disconnect_async()
         return
 
-    # Initialize grid strategy
-    strategy = GridStrategy(
-        broker=broker,
-        grid_spacing=1.0,      # 1 point spacing for scalping
-        scalp_points=1.0,      # Target 1 point profit
-        min_bar_range=0.5      # Minimum bar range to consider strong
-    )
+    # --- Initialize Trader and Strategy ---
+    trader = Trader(broker)
+    strategy = GridStrategy(broker, trader, scalp_points=1.0, min_bar_range=0.5)
 
-    # Start the strategy
+    # --- Run strategy ---
     try:
         await strategy.start()
     except Exception as e:
-        print("Strategy failed:", e)
+        print("Strategy error:", e)
     finally:
-        # Disconnect cleanly
         await broker.disconnect_async()
         print("Bot shut down cleanly.")
 
