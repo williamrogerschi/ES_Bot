@@ -56,14 +56,12 @@ class IBKRBroker:
             if now >= self.current_bar_start + self.bar_interval:
                 # Close current bar
                 if self.tick_buffer:
-                    open_ = self.tick_buffer[0]
                     high = max(self.tick_buffer)
                     low = min(self.tick_buffer)
                     close = self.tick_buffer[-1]
 
                     bar_data = {
                         "time": self.current_bar_start,
-                        "open": open_,
                         "high": high,
                         "low": low,
                         "close": close
@@ -73,7 +71,7 @@ class IBKRBroker:
                         [self.bars, pd.DataFrame([bar_data])],
                         ignore_index=True
                     )
-                    print(f"[BAR] {self.current_bar_start} O:{open_} H:{high} L:{low} C:{close}")
+                    print(f"[BAR] {self.current_bar_start} H:{high} L:{low} C:{close}")
 
                 # Reset for next bar
                 self.current_bar_start = now.replace(second=0, microsecond=0)

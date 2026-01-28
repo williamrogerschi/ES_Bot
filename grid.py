@@ -16,7 +16,7 @@ class GridStrategy:
                 continue
 
             last_bar = bars.iloc[-1]
-            o, h, l, c = last_bar.open, last_bar.high, last_bar.low, last_bar.close
+            h, l, c = last_bar.open, last_bar.high, last_bar.low, last_bar.close
             bar_range = h - l
             close_pct = (c - l) / bar_range if bar_range > 0 else 0
 
@@ -29,7 +29,7 @@ class GridStrategy:
 
             # Strong long bar
             if close_pct >= 0.95:
-                limit_price = c - 0.05
+                limit_price = c - 0.25
                 print(f"[ENTRY] Strong CLOSED bar → BUY Close:{c} Limit:{limit_price}")
                 trade = self.trader.place_limit_order_no_wait("BUY", 1, limit_price)
                 self.active_trade = trade
@@ -37,7 +37,7 @@ class GridStrategy:
 
             # Strong short bar
             elif close_pct <= 0.05:
-                limit_price = c + 0.05
+                limit_price = c + 0.25
                 print(f"[ENTRY] Strong CLOSED bar → SELL Close:{c} Limit:{limit_price}")
                 trade = self.trader.place_limit_order_no_wait("SELL", 1, limit_price)
                 self.active_trade = trade
