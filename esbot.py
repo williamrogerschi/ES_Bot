@@ -1,41 +1,17 @@
-# esBot.py
+# esBot.py (quick test)
 import asyncio
 from ibkrBroker import IBKRBroker
-from trades import Trader
-from grid import GridStrategy
 
 async def main():
-    # --- Initialize broker ---
-    broker = IBKRBroker(symbol="ES")
-    try:
-        await broker.connect_async()
-    except Exception as e:
-        print("IBKR connection failed:", e)
-        return
+    broker = IBKRBroker()
+    await broker.connect_async()
+    await broker.get_front_month_contract_async()
 
-    # --- Get front-month contract ---
-    try:
-        success = await broker.get_front_month_contract_async()
-        if not success:
-            await broker.disconnect_async()
-            return
-    except Exception as e:
-        print("Contract fetch failed:", e)
-        await broker.disconnect_async()
-        return
+    async for bar in broker.stream_closed_bars():
+        o, h, l, c = bar["open"], bar["high"], bar["low"], bar["close"]
+        ts = bar["time"]
+        bar_range = h - l
+        close_pct = (c - l) / bar_range if bar_range > 0 else 0
+        print(f"[BAR] {ts} H:{h} L:{l} C:{c} Range:{bar_range:.2f} Close%:{close_pct:.2f}")
 
-    # --- Initialize Trader and Strategy ---
-    trader = Trader(broker)
-    strategy = GridStrategy(broker, trader, scalp_points=1.0, min_bar_range=0.5)
-
-    # --- Run strategy ---
-    try:
-        await strategy.start()
-    except Exception as e:
-        print("Strategy error:", e)
-    finally:
-        await broker.disconnect_async()
-        print("Bot shut down cleanly.")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())

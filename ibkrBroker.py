@@ -1,20 +1,21 @@
 # ibkrBroker.py
-from ib_insync import IB, Future
-import pandas as pd
-from datetime import datetime, timedelta
+from ib_insync import IB, Future, LimitOrder
 import asyncio
+from zoneinfo import ZoneInfo
+
+CENTRAL = ZoneInfo("America/Chicago")
 
 class IBKRBroker:
     def __init__(self, symbol="ES"):
         self.ib = IB()
         self.symbol = symbol
         self.contract = None
-        self.bars = pd.DataFrame(columns=["time", "open", "high", "low", "close"])
-        self.tick_buffer = []
-        self.current_bar_start = None
-        self.bar_interval = timedelta(minutes=1)
-        self.tick_sub = None
 
+        # 1-min bar builder
+        self.current_bar = None
+        self.current_minute = None
+
+    # -------------------- Connection --------------------
     async def connect_async(self, host="127.0.0.1", port=7497):
         await self.ib.connectAsync(host, port, clientId=1)
         print("✓ Connected to IBKR")
@@ -27,64 +28,71 @@ class IBKRBroker:
     async def get_front_month_contract_async(self):
         contract = Future(symbol=self.symbol, exchange="CME")
         details = await self.ib.reqContractDetailsAsync(contract)
-        if not details:
-            print("⚠ No contract found")
-            return False
-
-        details.sort(key=lambda x: x.contract.lastTradeDateOrContractMonth)
+        details.sort(key=lambda d: d.contract.lastTradeDateOrContractMonth)
         self.contract = details[0].contract
         print(f"✓ Front-month contract: {self.contract.localSymbol}")
-        return True
 
-    async def stream_tick_bars(self):
-        """
-        Streams tick data and builds 1-minute bars.
-        """
-        self.tick_sub = self.ib.reqMktData(self.contract, "", False, False)
+    # -------------------- Limit orders --------------------
+    def place_limit_order_no_wait(self, action, quantity, price):
+        """Submit a simple limit order immediately."""
+        order = LimitOrder(action, quantity, price)
+        order.tif = "GTC"
+        order.outsideRth = True
+        trade = self.ib.placeOrder(self.contract, order)
+        print(f"[ORDER] Submitted {action} LIMIT @ {price}")
+        return trade
 
-        def process_tick(tick):
-            last_price = getattr(tick, "last", None)
-            if last_price is None:
-                return
-
-            now = datetime.now()
-
-            # Start new bar if needed
-            if self.current_bar_start is None:
-                self.current_bar_start = now.replace(second=0, microsecond=0)
-
-            if now >= self.current_bar_start + self.bar_interval:
-                # Close current bar
-                if self.tick_buffer:
-                    high = max(self.tick_buffer)
-                    low = min(self.tick_buffer)
-                    close = self.tick_buffer[-1]
-
-                    bar_data = {
-                        "time": self.current_bar_start,
-                        "high": high,
-                        "low": low,
-                        "close": close
-                    }
-
-                    self.bars = pd.concat(
-                        [self.bars, pd.DataFrame([bar_data])],
-                        ignore_index=True
-                    )
-                    print(f"[BAR] {self.current_bar_start} H:{high} L:{low} C:{close}")
-
-                # Reset for next bar
-                self.current_bar_start = now.replace(second=0, microsecond=0)
-                self.tick_buffer = [last_price]
-            else:
-                self.tick_buffer.append(last_price)
-
-        self.tick_sub.updateEvent += process_tick
+    # -------------------- Build 1-min bars from market data --------------------
+    async def stream_1m_bars_from_mktdata(self):
+        ticker = self.ib.reqMktData(self.contract, "", False, False)
 
         try:
             while True:
-                await asyncio.sleep(0.1)
-                yield self.bars
+                await ticker.updateEvent
+
+                if ticker.last is None:
+                    continue
+
+                # Convert UTC tick to Central
+                tick_time = ticker.time.astimezone(CENTRAL)
+                minute = tick_time.replace(second=0, microsecond=0)
+                price = ticker.last
+
+                # First tick ever
+                if self.current_bar is None:
+                    self.current_minute = minute
+                    self.current_bar = {
+                        "time": minute,
+                        "open": price,
+                        "high": price,
+                        "low": price,
+                        "close": price,
+                    }
+                    continue
+
+                # New minute → yield previous bar
+                if minute > self.current_minute:
+                    yield self.current_bar  # yield closed bar
+                    self.current_minute = minute
+                    self.current_bar = {
+                        "time": minute,
+                        "open": price,
+                        "high": price,
+                        "low": price,
+                        "close": price,
+                    }
+                    continue
+
+                # Update current bar
+                self.current_bar["high"] = max(self.current_bar["high"], price)
+                self.current_bar["low"] = min(self.current_bar["low"], price)
+                self.current_bar["close"] = price
+
         finally:
-            if self.tick_sub:
-                self.ib.cancelMktData(self.tick_sub)
+            self.ib.cancelMktData(self.contract)
+
+    # -------------------- Strategy-facing API --------------------
+    async def stream_closed_bars(self):
+        """Yields every closed bar (1-min) as a dict."""
+        async for bar in self.stream_1m_bars_from_mktdata():
+            yield bar

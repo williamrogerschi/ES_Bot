@@ -1,6 +1,6 @@
  # ES Futures Trading Bot
    
-   Automated trading bot for ES futures using moving average strategy.
+   Automated trading bot for ES futures using grid trading and price action.
    
    ## Setup
    - Python 3.x required
