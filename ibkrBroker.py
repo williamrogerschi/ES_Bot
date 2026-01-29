@@ -1,7 +1,9 @@
 # ibkrBroker.py
 from ib_insync import IB, Future, LimitOrder
-import asyncio
+import pandas as pd
+from datetime import timezone
 from zoneinfo import ZoneInfo
+import asyncio
 
 CENTRAL = ZoneInfo("America/Chicago")
 
@@ -10,12 +12,9 @@ class IBKRBroker:
         self.ib = IB()
         self.symbol = symbol
         self.contract = None
+        self.recent_bars = pd.DataFrame(columns=["time", "open", "high", "low", "close"])
+        self.last_time = None  # last bar time for stream_closed_bars
 
-        # 1-min bar builder
-        self.current_bar = None
-        self.current_minute = None
-
-    # -------------------- Connection --------------------
     async def connect_async(self, host="127.0.0.1", port=7497):
         await self.ib.connectAsync(host, port, clientId=1)
         print("✓ Connected to IBKR")
@@ -26,73 +25,77 @@ class IBKRBroker:
             print("✓ Disconnected from IBKR")
 
     async def get_front_month_contract_async(self):
+        """
+        Dynamically fetch the front-month ES contract.
+        """
         contract = Future(symbol=self.symbol, exchange="CME")
         details = await self.ib.reqContractDetailsAsync(contract)
+        if not details:
+            raise RuntimeError("No contract found")
+        # Sort by nearest expiry
         details.sort(key=lambda d: d.contract.lastTradeDateOrContractMonth)
         self.contract = details[0].contract
         print(f"✓ Front-month contract: {self.contract.localSymbol}")
 
-    # -------------------- Limit orders --------------------
+    # ------------------------------------------------------------------
+    # Stream 1-minute bars from TWS
+    # ------------------------------------------------------------------
+    async def stream_closed_bars(self):
+        """
+        Async generator yielding each fully closed 1-minute bar.
+        Bars come from historical data with keepUpToDate=True, so they match TWS charts.
+        """
+        bars = await self.ib.reqHistoricalDataAsync(
+            self.contract,
+            endDateTime="",
+            durationStr="2 D",
+            barSizeSetting="1 min",
+            whatToShow="TRADES",
+            useRTH=False,
+            keepUpToDate=True
+        )
+
+        while True:
+            await bars.updateEvent  # wait for new data
+            if not bars:
+                continue
+
+            bar = bars[-1]
+
+            # Convert IBKR UTC datetime to Central
+            bar_time = bar.date.replace(tzinfo=timezone.utc).astimezone(CENTRAL)
+
+            # Skip if bar hasn’t changed
+            if self.last_time == bar_time:
+                continue
+
+            self.last_time = bar_time
+
+            bar_dict = {
+                "time": bar_time,
+                "open": bar.open,
+                "high": bar.high,
+                "low": bar.low,
+                "close": bar.close,
+            }
+
+            # Optionally append to recent_bars
+            self.recent_bars = pd.concat([self.recent_bars, pd.DataFrame([bar_dict])], ignore_index=True)
+
+            yield bar_dict
+
+    # ------------------------------------------------------------------
+    # Trade API
+    # ------------------------------------------------------------------
     def place_limit_order_no_wait(self, action, quantity, price):
-        """Submit a simple limit order immediately."""
+        """
+        Immediately submit a limit order without awaiting fills.
+        """
+        if self.contract is None:
+            raise ValueError("Contract not set")
         order = LimitOrder(action, quantity, price)
         order.tif = "GTC"
         order.outsideRth = True
         trade = self.ib.placeOrder(self.contract, order)
         print(f"[ORDER] Submitted {action} LIMIT @ {price}")
         return trade
-
-    # -------------------- Build 1-min bars from market data --------------------
-    async def stream_1m_bars_from_mktdata(self):
-        ticker = self.ib.reqMktData(self.contract, "", False, False)
-
-        try:
-            while True:
-                await ticker.updateEvent
-
-                if ticker.last is None:
-                    continue
-
-                # Convert UTC tick to Central
-                tick_time = ticker.time.astimezone(CENTRAL)
-                minute = tick_time.replace(second=0, microsecond=0)
-                price = ticker.last
-
-                # First tick ever
-                if self.current_bar is None:
-                    self.current_minute = minute
-                    self.current_bar = {
-                        "time": minute,
-                        "open": price,
-                        "high": price,
-                        "low": price,
-                        "close": price,
-                    }
-                    continue
-
-                # New minute → yield previous bar
-                if minute > self.current_minute:
-                    yield self.current_bar  # yield closed bar
-                    self.current_minute = minute
-                    self.current_bar = {
-                        "time": minute,
-                        "open": price,
-                        "high": price,
-                        "low": price,
-                        "close": price,
-                    }
-                    continue
-
-                # Update current bar
-                self.current_bar["high"] = max(self.current_bar["high"], price)
-                self.current_bar["low"] = min(self.current_bar["low"], price)
-                self.current_bar["close"] = price
-
-        finally:
-            self.ib.cancelMktData(self.contract)
-
-    # -------------------- Strategy-facing API --------------------
-    async def stream_closed_bars(self):
-        """Yields every closed bar (1-min) as a dict."""
-        async for bar in self.stream_1m_bars_from_mktdata():
-            yield bar
