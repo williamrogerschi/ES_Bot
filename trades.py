@@ -2,7 +2,7 @@
 class TradeStrategy:
     def __init__(self, broker, strong_threshold=0.25):
         """
-        broker: your IBKRBroker instance
+        broker: IBKRBroker instance
         strong_threshold: fraction from high/low to define strong bar (0.25 = top/bottom 25%)
         """
         self.broker = broker
@@ -16,16 +16,17 @@ class TradeStrategy:
                 continue
 
             close_pct = (c - l) / bar_range
+
             print(f"[BAR] {bar['time']} H:{h} L:{l} C:{c} Range:{bar_range:.2f} Close%:{close_pct:.2f}")
 
             # Strong bullish bar → BUY
             if close_pct >= 1 - self.strong_threshold:
-                limit_price = c - 0.05
+                limit_price = c - 0.05  # slightly below close
                 print(f"[ENTRY] Strong bullish bar → BUY Limit: {limit_price}")
                 self.broker.place_limit_order_no_wait("BUY", 1, limit_price)
 
             # Strong bearish bar → SELL
             elif close_pct <= self.strong_threshold:
-                limit_price = c + 0.05
+                limit_price = c + 0.05  # slightly above close
                 print(f"[ENTRY] Strong bearish bar → SELL Limit: {limit_price}")
                 self.broker.place_limit_order_no_wait("SELL", 1, limit_price)

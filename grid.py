@@ -1,47 +1,34 @@
 # grid.py
-import asyncio
-from datetime import datetime, timedelta
+import math
 
 class GridStrategy:
-    def __init__(self, broker, trader, scalp_points=1.0, min_bar_range=0.5):
+    def __init__(self, broker, grid_size=10.0):
+        """
+        grid_size: ES points between grid levels
+        """
         self.broker = broker
-        self.trader = trader
-        self.scalp_points = scalp_points
-        self.min_bar_range = min_bar_range
-        self.active_trade = None
+        self.grid_size = grid_size
+        self.last_grid_price = None
 
-    async def start(self):
-        async for bars in self.broker.stream_tick_bars():
-            if bars.empty:
+    async def run(self):
+        async for price in self.broker.stream_ticks():
+            if self.last_grid_price is None:
+                self.last_grid_price = price
+                print(f"[GRID INIT] {price}")
                 continue
 
-            last_bar = bars.iloc[-1]
-            h, l, c = last_bar.open, last_bar.high, last_bar.low, last_bar.close
-            bar_range = h - l
-            close_pct = (c - l) / bar_range if bar_range > 0 else 0
+            move = price - self.last_grid_price
 
-            # Skip if already active trade
-            if self.active_trade:
-                continue
+            # PRICE MOVED UP → SELL GRID
+            if move >= self.grid_size:
+                sell_price = math.floor(price / self.grid_size) * self.grid_size
+                print(f"[GRID SELL] price={price} sell={sell_price}")
+                self.broker.place_limit_order_no_wait("SELL", 1, sell_price)
+                self.last_grid_price = price
 
-            if bar_range < self.min_bar_range:
-                continue
-
-            # Strong long bar
-            if close_pct >= 0.95:
-                limit_price = c - 0.25
-                print(f"[ENTRY] Strong CLOSED bar → BUY Close:{c} Limit:{limit_price}")
-                trade = self.trader.place_limit_order_no_wait("BUY", 1, limit_price)
-                self.active_trade = trade
-                await self.trader.place_take_profit("BUY", limit_price, self.scalp_points)
-
-            # Strong short bar
-            elif close_pct <= 0.05:
-                limit_price = c + 0.25
-                print(f"[ENTRY] Strong CLOSED bar → SELL Close:{c} Limit:{limit_price}")
-                trade = self.trader.place_limit_order_no_wait("SELL", 1, limit_price)
-                self.active_trade = trade
-                await self.trader.place_take_profit("SELL", limit_price, self.scalp_points)
-
-            # Reset after trade
-            self.active_trade = None
+            # PRICE MOVED DOWN → BUY GRID
+            elif move <= -self.grid_size:
+                buy_price = math.ceil(price / self.grid_size) * self.grid_size
+                print(f"[GRID BUY] price={price} buy={buy_price}")
+                self.broker.place_limit_order_no_wait("BUY", 1, buy_price)
+                self.last_grid_price = price

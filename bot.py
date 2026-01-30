@@ -1,16 +1,14 @@
-# esBot.py
+# bot.py
 import asyncio
 from ibkrBroker import IBKRBroker
-from trades import TradeStrategy
+from grid import GridStrategy
 
 async def main():
     broker = IBKRBroker()
     await broker.connect_async()
     await broker.get_front_month_contract_async()
 
-    strategy = TradeStrategy(broker, strong_threshold=0.25)
-    await strategy.run()
-
-    await broker.disconnect_async()
+    grid = GridStrategy(broker, grid_size=1.0)
+    await grid.run()
 
 asyncio.run(main())
