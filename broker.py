@@ -1,16 +1,17 @@
 # broker.py
-from ib_insync import IB, Future, util
+from ib_insync import IB, Future, Order, Trade, util
 import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from collections import deque
+from typing import Optional, Dict, List
 
 CENTRAL = ZoneInfo("America/Chicago")
 UTC = ZoneInfo("UTC")
 
+
 class IBKRBroker:
     def __init__(self, symbol="ES"):
-        util.startLoop()  # only needed if running in Jupyter/script without event loop
+        util.startLoop()
         self.ib = IB()
         self.symbol = symbol
         self.contract = None
@@ -18,15 +19,26 @@ class IBKRBroker:
         # For 1-min aggregation
         self._current_1min = None
         self._last_start = None
-        self._bar_queue = asyncio.Queue()           # completed 1-min bars go here
+        self._bar_queue = asyncio.Queue()
         self._rt_bars = None
+        
+        # Order tracking
+        self._open_orders: Dict[int, Trade] = {}
+        self._filled_orders: Dict[int, Trade] = {}
 
+    # ==================== Connection ====================
+    
     async def connect_async(self, host="127.0.0.1", port=7497, client_id=10):
         await self.ib.connectAsync(host, port, clientId=client_id)
         print(f"✓ Connected to IBKR (paper) - clientId={client_id}")
+        
+        # Set up order event handlers
+        self.ib.orderStatusEvent += self._on_order_status
+        self.ib.execDetailsEvent += self._on_exec_details
 
     async def disconnect_async(self):
         if self.ib.isConnected():
+            await self.cancel_all_orders()
             self.ib.disconnect()
             print("✓ Disconnected from IBKR")
 
@@ -39,32 +51,77 @@ class IBKRBroker:
         details.sort(key=lambda d: d.contract.lastTradeDateOrContractMonth)
         self.contract = details[0].contract
         
-        # Important: qualify so we have full contract info
         await self.ib.qualifyContractsAsync(self.contract)
-        print(f"✓ Front-month contract: {self.contract.localSymbol}  expiry={self.contract.lastTradeDateOrContractMonth}")
+        print(f"✓ Front-month contract: {self.contract.localSymbol} expiry={self.contract.lastTradeDateOrContractMonth}")
 
+    # ==================== Historical Data ====================
+    
+    async def get_historical_bars(self, duration: str = "1 D", bar_size: str = "1 min") -> list:
+        """
+        Fetch historical bars to warm up indicators.
+        
+        Args:
+            duration: How far back to fetch (e.g., "1 D", "2 D", "1 W")
+            bar_size: Bar size (e.g., "1 min", "5 mins", "1 hour")
+        
+        Returns:
+            List of bar dicts with time, open, high, low, close, volume
+        """
+        if not self.contract:
+            raise RuntimeError("Contract not set. Run get_front_month_contract_async() first.")
+        
+        print(f"→ Fetching historical bars ({duration}, {bar_size})...")
+        
+        bars = await self.ib.reqHistoricalDataAsync(
+            contract=self.contract,
+            endDateTime='',
+            durationStr=duration,
+            barSizeSetting=bar_size,
+            whatToShow='TRADES',
+            useRTH=False,
+            formatDate=1
+        )
+        
+        if not bars:
+            print("  ⚠️ No historical bars returned")
+            return []
+        
+        result = []
+        for bar in bars:
+            dt = bar.date
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=UTC)
+            
+            result.append({
+                "time": dt,
+                "open": bar.open,
+                "high": bar.high,
+                "low": bar.low,
+                "close": bar.close,
+                "volume": bar.volume
+            })
+        
+        print(f"✓ Loaded {len(result)} historical bars")
+        return result
+
+    # ==================== Bar Streaming ====================
+    
     def _on_rt_bar(self, bars, has_new_bar: bool):
         """RealTimeBarList updateEvent callback"""
         if not bars:
             return
         
-        bar = bars[-1]                  # latest 5-second bar
-        dt = bar.time                   # already datetime.datetime (UTC, naive)
-        
-        # Make it timezone-aware (UTC)
+        bar = bars[-1]
+        dt = bar.time
         dt_utc = dt.replace(tzinfo=UTC)
-        
-        # Round down to start of the minute
         minute_start = dt_utc.replace(second=0, microsecond=0)
 
         if self._last_start != minute_start:
-            # New minute → push completed previous bar if any
             if self._current_1min is not None:
                 asyncio.create_task(self._bar_queue.put(dict(self._current_1min)))
             
-            # Begin new 1-min aggregation
             self._current_1min = {
-                "time": minute_start,       # now timezone-aware UTC
+                "time": minute_start,
                 "open": bar.open_,
                 "high": bar.high,
                 "low": bar.low,
@@ -73,9 +130,8 @@ class IBKRBroker:
             }
             self._last_start = minute_start
         else:
-            # Update current minute bar
-            self._current_1min["high"]  = max(self._current_1min["high"],  bar.high)
-            self._current_1min["low"]   = min(self._current_1min["low"],   bar.low)
+            self._current_1min["high"] = max(self._current_1min["high"], bar.high)
+            self._current_1min["low"] = min(self._current_1min["low"], bar.low)
             self._current_1min["close"] = bar.close
             self._current_1min["volume"] += bar.volume
 
@@ -85,7 +141,7 @@ class IBKRBroker:
 
         self._rt_bars = self.ib.reqRealTimeBars(
             contract=self.contract,
-            barSize=5,                  # ONLY 5 is supported
+            barSize=5,
             whatToShow="TRADES",
             useRTH=False
         )
@@ -99,7 +155,236 @@ class IBKRBroker:
                 yield bar
         finally:
             if self._rt_bars:
-                # Fixed: cancel using the RealTimeBarList object, not the contract
                 self.ib.cancelRealTimeBars(self._rt_bars)
                 self._rt_bars.updateEvent -= self._on_rt_bar
             print("→ Real-time bars cancelled")
+
+    # ==================== Order Event Handlers ====================
+    
+    def _on_order_status(self, trade: Trade):
+        """Called when order status changes."""
+        order_id = trade.order.orderId
+        status = trade.orderStatus.status
+        
+        print(f"  📋 Order {order_id} status: {status}")
+        
+        if status in ['Filled', 'Cancelled', 'ApiCancelled']:
+            if order_id in self._open_orders:
+                del self._open_orders[order_id]
+            if status == 'Filled':
+                self._filled_orders[order_id] = trade
+    
+    def _on_exec_details(self, trade: Trade, fill):
+        """Called when an order is filled."""
+        print(f"  ✅ Fill: {fill.execution.side} {fill.execution.shares} @ {fill.execution.price}")
+
+    # ==================== Order Placement ====================
+    
+    async def place_market_order(self, action: str, quantity: int) -> Optional[Trade]:
+        """
+        Place a market order.
+        
+        Args:
+            action: 'BUY' or 'SELL'
+            quantity: Number of contracts
+        
+        Returns:
+            Trade object or None if failed
+        """
+        if not self.contract:
+            raise RuntimeError("Contract not set")
+        
+        order = Order(
+            action=action,
+            orderType='MKT',
+            totalQuantity=quantity,
+            transmit=True
+        )
+        
+        trade = self.ib.placeOrder(self.contract, order)
+        self._open_orders[order.orderId] = trade
+        
+        print(f"  📤 Market {action} {quantity} contracts submitted (ID: {order.orderId})")
+        
+        await asyncio.sleep(0.1)
+        return trade
+    
+    async def place_limit_order(self, action: str, quantity: int, limit_price: float) -> Optional[Trade]:
+        """
+        Place a limit order.
+        
+        Args:
+            action: 'BUY' or 'SELL'
+            quantity: Number of contracts
+            limit_price: Limit price
+        
+        Returns:
+            Trade object or None if failed
+        """
+        if not self.contract:
+            raise RuntimeError("Contract not set")
+        
+        order = Order(
+            action=action,
+            orderType='LMT',
+            totalQuantity=quantity,
+            lmtPrice=limit_price,
+            transmit=True
+        )
+        
+        trade = self.ib.placeOrder(self.contract, order)
+        self._open_orders[order.orderId] = trade
+        
+        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId})")
+        
+        await asyncio.sleep(0.1)
+        return trade
+    
+    async def place_stop_order(self, action: str, quantity: int, stop_price: float) -> Optional[Trade]:
+        """
+        Place a stop order.
+        
+        Args:
+            action: 'BUY' or 'SELL'
+            quantity: Number of contracts
+            stop_price: Stop trigger price
+        
+        Returns:
+            Trade object or None if failed
+        """
+        if not self.contract:
+            raise RuntimeError("Contract not set")
+        
+        order = Order(
+            action=action,
+            orderType='STP',
+            totalQuantity=quantity,
+            auxPrice=stop_price,
+            transmit=True
+        )
+        
+        trade = self.ib.placeOrder(self.contract, order)
+        self._open_orders[order.orderId] = trade
+        
+        print(f"  📤 Stop {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId})")
+        
+        await asyncio.sleep(0.1)
+        return trade
+    
+    async def place_bracket_order(
+        self, 
+        action: str, 
+        quantity: int, 
+        entry_price: float,
+        take_profit_price: float,
+        stop_loss_price: float
+    ) -> Optional[List[Trade]]:
+        """
+        Place a bracket order (entry + TP + SL).
+        
+        Args:
+            action: 'BUY' or 'SELL' for the entry
+            quantity: Number of contracts
+            entry_price: Limit price for entry
+            take_profit_price: Take profit limit price
+            stop_loss_price: Stop loss trigger price
+        
+        Returns:
+            List of Trade objects [entry, take_profit, stop_loss] or None
+        """
+        if not self.contract:
+            raise RuntimeError("Contract not set")
+        
+        bracket = self.ib.bracketOrder(
+            action=action,
+            quantity=quantity,
+            limitPrice=entry_price,
+            takeProfitPrice=take_profit_price,
+            stopLossPrice=stop_loss_price
+        )
+        
+        trades = []
+        for order in bracket:
+            trade = self.ib.placeOrder(self.contract, order)
+            self._open_orders[order.orderId] = trade
+            trades.append(trade)
+        
+        print(f"  📤 Bracket {action}: Entry @ {entry_price:.2f}, TP @ {take_profit_price:.2f}, SL @ {stop_loss_price:.2f}")
+        
+        await asyncio.sleep(0.1)
+        return trades
+
+    # ==================== Order Management ====================
+    
+    async def cancel_order(self, trade: Trade) -> bool:
+        """Cancel a specific order."""
+        try:
+            self.ib.cancelOrder(trade.order)
+            print(f"  ❌ Cancel request sent for order {trade.order.orderId}")
+            await asyncio.sleep(0.1)
+            return True
+        except Exception as e:
+            print(f"  ⚠️ Failed to cancel order: {e}")
+            return False
+    
+    async def cancel_all_orders(self):
+        """Cancel all open orders."""
+        if not self._open_orders:
+            return
+        
+        print(f"  ❌ Cancelling {len(self._open_orders)} open orders...")
+        for trade in list(self._open_orders.values()):
+            await self.cancel_order(trade)
+    
+    async def close_all_positions(self) -> Optional[Trade]:
+        """Close all positions with a market order."""
+        positions = self.ib.positions()
+        
+        for pos in positions:
+            if pos.contract.symbol == self.symbol:
+                quantity = abs(pos.position)
+                action = 'SELL' if pos.position > 0 else 'BUY'
+                
+                print(f"  🔄 Closing {pos.position} {self.symbol} position...")
+                return await self.place_market_order(action, int(quantity))
+        
+        return None
+
+    # ==================== Account Info ====================
+    
+    def get_position(self) -> int:
+        """Get current position size for this symbol."""
+        positions = self.ib.positions()
+        for pos in positions:
+            if pos.contract.symbol == self.symbol:
+                return int(pos.position)
+        return 0
+    
+    def get_account_value(self) -> float:
+        """Get current account net liquidation value."""
+        account_values = self.ib.accountValues()
+        for av in account_values:
+            if av.tag == 'NetLiquidation' and av.currency == 'USD':
+                return float(av.value)
+        return 0.0
+    
+    def get_buying_power(self) -> float:
+        """Get available buying power."""
+        account_values = self.ib.accountValues()
+        for av in account_values:
+            if av.tag == 'BuyingPower' and av.currency == 'USD':
+                return float(av.value)
+        return 0.0
+    
+    async def get_current_price(self) -> Optional[float]:
+        """Get current market price for the contract."""
+        if not self.contract:
+            return None
+        
+        ticker = self.ib.reqMktData(self.contract, '', False, False)
+        await asyncio.sleep(0.5)
+        
+        price = ticker.marketPrice()
+        self.ib.cancelMktData(self.contract)
+        
+        return price if price > 0 else None
