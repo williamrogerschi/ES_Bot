@@ -1,7 +1,9 @@
 # main.py
 import asyncio
+from strategy import GridStrategy
+from models import StrategyConfig
 from broker import IBKRBroker
-from strategy import GridStrategy, StrategyConfig
+
 
 
 async def main():
@@ -82,11 +84,11 @@ async def main():
                     strategy.last_reset_day = current_day
             
             # Calculate indicators after loading all bars
-            if strategy._calculate_indicators():
+            if strategy.indicators.calculate_all(strategy.bars):
                 strategy.current_trend = strategy._determine_trend()
                 strategy.grid_levels = strategy._calculate_grid_levels()
                 
-                ind = strategy._indicators
+                ind = strategy.indicators.cache
                 print(f"\n✓ Indicators ready!")
                 print(f"  Bars loaded: {len(strategy.bars)}")
                 print(f"  Last price: {strategy.last_price:.2f}")
