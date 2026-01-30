@@ -61,11 +61,11 @@ class StrategyConfig:
     momentum_length: int = 10
     
     # Risk management
-    stop_loss_pct: float = 0.30
-    take_profit_pct: float = 0.50
+    stop_loss_pct: float = 0.15
+    take_profit_pct: float = 0.25
     use_trailing_stop: bool = True
-    trailing_stop_pct: float = 0.15
-    max_loss_per_day_pct: float = 5.0
+    trailing_stop_pct: float = 0.07
+    max_loss_per_day_pct: float = 2.0
     
     # Time-based exit
     time_based_exit: bool = True
