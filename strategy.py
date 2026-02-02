@@ -1,7 +1,12 @@
-#strategy.py
+"""
+ES Futures Grid Trading Strategy
+Main strategy logic - imports models and indicators
+"""
+
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
+
 from models import TrendState, Position, StrategyConfig
 from indicators import Indicators
 
@@ -500,6 +505,16 @@ class GridStrategy:
         print(f"     RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
         print(f"     MA: {ind['short_ma']:.2f} / {ind['long_ma']:.2f} / {ind['super_long_ma']:.2f}")
         print(f"     Anchor: {self.grid_anchor_price:.2f} | Positions: {self.position_count}/{self.config.max_positions} | Daily P&L: {self.daily_pnl:+.2f}")
+        
+        # Display open position details
+        for pos in self.positions:
+            if pos.side == 'long':
+                unrealized_pnl = (self.last_price - pos.entry_price) * pos.size
+            else:
+                unrealized_pnl = (pos.entry_price - self.last_price) * pos.size
+            
+            active_stop = pos.trailing_stop if self.config.use_trailing_stop and pos.trailing_stop else pos.stop_loss
+            print(f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | SL: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+.2f}")
         
         # Check daily loss limit
         if self._check_daily_loss_limit():

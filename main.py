@@ -36,10 +36,10 @@ async def main():
         macd_signal=9,
         
         # Risk management
-        stop_loss_pct=0.3,
-        take_profit_pct=0.5,
+        stop_loss_pct=0.12,
+        take_profit_pct=0.16,
         use_trailing_stop=True,
-        trailing_stop_pct=0.15,
+        trailing_stop_pct=0.07,
         max_loss_per_day_pct=1.0,
         
         # Time-based exit
