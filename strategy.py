@@ -3,6 +3,7 @@ ES Futures Grid Trading Strategy
 Main strategy logic - imports models and indicators
 """
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
@@ -420,17 +421,29 @@ class GridStrategy:
         else:
             return trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]
     
-    async def _close_position(self, position: Position, exit_price: float, reason: str):
+    async def _close_position(self, position: Position, trigger_price: float, reason: str):
         """Close a position and record P&L."""
-        if position.side == 'long':
-            pnl = (exit_price - position.entry_price) * position.size
-            action = 'SELL'
-        else:
-            pnl = (position.entry_price - exit_price) * position.size
-            action = 'BUY'
+        action = 'SELL' if position.side == 'long' else 'BUY'
         
-        # Place close order
-        await self.broker.place_market_order(action, 1)
+        # Place close order and get actual fill price
+        trade = await self.broker.place_market_order(action, 1)
+        
+        # Wait briefly for fill to register
+        await asyncio.sleep(0.3)
+        
+        # Get actual fill price from trade object
+        if trade and trade.fills:
+            actual_exit = trade.fills[-1].execution.price
+        else:
+            # Fallback to trigger price if fill not available
+            actual_exit = trigger_price
+            print(f"  ⚠️ Fill price not available, using trigger: {trigger_price:.2f}")
+        
+        # Calculate P&L with actual fill price
+        if position.side == 'long':
+            pnl = (actual_exit - position.entry_price) * position.size
+        else:
+            pnl = (position.entry_price - actual_exit) * position.size
         
         self.daily_pnl += pnl
         self.equity += pnl
@@ -438,7 +451,7 @@ class GridStrategy:
         self.positions.remove(position)
         self.position_count -= 1
         
-        print(f"  ❌ CLOSE {position.side.upper()} @ {exit_price:.2f} | P&L: {pnl:+.2f} | {reason}")
+        print(f"  ❌ CLOSE {position.side.upper()} @ {actual_exit:.2f} (trigger: {trigger_price:.2f}) | P&L: {pnl:+.2f} | {reason}")
         print(f"     Daily P&L: {self.daily_pnl:+.2f} | Equity: {self.equity:.2f}")
     
     def _check_daily_loss_limit(self) -> bool:
