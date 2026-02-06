@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from models import TrendState, Position, StrategyConfig
+from models import TrendState, Position, StrategyConfig, PendingOrder
 from indicators import Indicators
 
 UTC = ZoneInfo("UTC")
@@ -42,10 +42,21 @@ class GridStrategy:
         self.positions: List[Position] = []
         self.position_count: int = 0
         
+        # PENDING ORDER TRACKING - orders submitted but not yet filled
+        self.pending_orders: Dict[int, PendingOrder] = {}  # order_id -> PendingOrder
+        
         # P&L tracking
         self.equity = self.config.initial_equity
         self.daily_pnl: float = 0.0
         self.last_reset_day: Optional[int] = None
+    
+    # =========================================================================
+    # TICK ROUNDING
+    # =========================================================================
+    
+    def _round_to_tick(self, price: float) -> float:
+        """Round price to valid tick increment."""
+        return round(price / self.config.tick_size) * self.config.tick_size
     
     # =========================================================================
     # TREND DETERMINATION
@@ -170,16 +181,21 @@ class GridStrategy:
             # Sideways: anchor at current price
             self.grid_anchor_price = self.last_price
         
+        # Round anchor to valid tick
+        self.grid_anchor_price = self._round_to_tick(self.grid_anchor_price)
+        
         self.grid_anchor_time = datetime.now(UTC)
         print(f"  🎯 Grid anchor set @ {self.grid_anchor_price:.2f} ({trend.value})")
     
     def _calculate_grid_levels(self) -> List[float]:
-        """Calculate grid levels from anchor."""
+        """Calculate grid levels from anchor (all rounded to valid tick)."""
         if not self.grid_anchor_price:
             return []
         
         grid_size = self._calculate_grid_size()
         grid_step = self.last_price * (grid_size / 100)
+        # Round step to tick
+        grid_step = self._round_to_tick(grid_step)
         levels = []
         
         trend = self.confirmed_trend
@@ -187,19 +203,19 @@ class GridStrategy:
         if trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
             # Levels at and above anchor for shorts
             for i in range(self.config.max_positions):
-                level = self.grid_anchor_price + (i * grid_step)
+                level = self._round_to_tick(self.grid_anchor_price + (i * grid_step))
                 levels.append(level)
                 
         elif trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
             # Levels at and below anchor for longs
             for i in range(self.config.max_positions):
-                level = self.grid_anchor_price - (i * grid_step)
+                level = self._round_to_tick(self.grid_anchor_price - (i * grid_step))
                 levels.append(level)
         else:
             # Sideways: levels both directions
             for i in range(self.config.max_positions):
-                levels.append(self.grid_anchor_price + ((i + 1) * grid_step))
-                levels.append(self.grid_anchor_price - ((i + 1) * grid_step))
+                levels.append(self._round_to_tick(self.grid_anchor_price + ((i + 1) * grid_step)))
+                levels.append(self._round_to_tick(self.grid_anchor_price - ((i + 1) * grid_step)))
         
         return sorted(levels)
     
@@ -226,7 +242,9 @@ class GridStrategy:
     
     async def _check_entries(self, bar: Dict):
         """Check for entry signals on grid levels."""
-        if self.position_count >= self.config.max_positions:
+        # Count both filled positions AND pending orders toward max
+        total_orders = self.position_count + len(self.pending_orders)
+        if total_orders >= self.config.max_positions:
             return
         
         if not self.grid_levels:
@@ -240,8 +258,9 @@ class GridStrategy:
         low = bar['low']
         current_price = bar['close']
         
-        # Check levels already in use
+        # Check levels already in use (filled positions + pending orders)
         active_levels = {p.grid_level for p in self.positions}
+        active_levels.update({p.grid_level for p in self.pending_orders.values()})
         
         # BEARISH: Look for shorts at resistance
         if trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
@@ -294,64 +313,143 @@ class GridStrategy:
                         break
     
     async def _enter_long(self, level: float, rsi: float, trend: TrendState):
-        """Enter a long position."""
+        """Submit a long entry order (position created only after fill)."""
+        # Round to valid tick
+        level = self._round_to_tick(level)
         size = self._calculate_position_size(level)
         
-        stop_loss = level * (1 - self.config.stop_loss_pct / 100)
-        take_profit = level * (1 + self.config.take_profit_pct / 100)
-        trailing_stop = level * (1 - self.config.trailing_stop_pct / 100) if self.config.use_trailing_stop else None
+        stop_loss = self._round_to_tick(level * (1 - self.config.stop_loss_pct / 100))
+        take_profit = self._round_to_tick(level * (1 + self.config.take_profit_pct / 100))
+        trailing_stop = self._round_to_tick(level * (1 - self.config.trailing_stop_pct / 100)) if self.config.use_trailing_stop else None
         
         # Place order
-        order_id = await self.broker.place_limit_order('BUY', 1, level)
+        trade = await self.broker.place_limit_order('BUY', 1, level)
+        order_id = trade.order.orderId
         
-        position = Position(
+        # Track as PENDING - position created only after fill confirmed
+        pending = PendingOrder(
+            order_id=order_id,
             side='long',
-            entry_price=level,
+            limit_price=level,
             size=size,
             stop_loss=stop_loss,
             take_profit=take_profit,
             trailing_stop=trailing_stop,
-            entry_time=datetime.now(UTC),
-            grid_level=level,
-            order_id=order_id
+            submit_time=datetime.now(UTC),
+            grid_level=level
         )
-        
-        self.positions.append(position)
-        self.position_count += 1
+        self.pending_orders[order_id] = pending
         
         reason = f"Grid Long ({trend.value}, RSI: {rsi:.1f})"
-        print(f"  ⬆️ LONG ENTRY @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
+        print(f"  ⬆️ LONG ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
         print(f"     Reason: {reason}")
+        print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
     
     async def _enter_short(self, level: float, rsi: float, trend: TrendState):
-        """Enter a short position."""
+        """Submit a short entry order (position created only after fill)."""
+        # Round to valid tick
+        level = self._round_to_tick(level)
         size = self._calculate_position_size(level)
         
-        stop_loss = level * (1 + self.config.stop_loss_pct / 100)
-        take_profit = level * (1 - self.config.take_profit_pct / 100)
-        trailing_stop = level * (1 + self.config.trailing_stop_pct / 100) if self.config.use_trailing_stop else None
+        stop_loss = self._round_to_tick(level * (1 + self.config.stop_loss_pct / 100))
+        take_profit = self._round_to_tick(level * (1 - self.config.take_profit_pct / 100))
+        trailing_stop = self._round_to_tick(level * (1 + self.config.trailing_stop_pct / 100)) if self.config.use_trailing_stop else None
         
         # Place order
-        order_id = await self.broker.place_limit_order('SELL', 1, level)
-        
-        position = Position(
+        trade = await self.broker.place_limit_order('SELL', 1, level)
+        order_id = trade.order.orderId
+                
+        # Track as PENDING - position created only after fill confirmed
+        pending = PendingOrder(
+            order_id=order_id,
             side='short',
-            entry_price=level,
+            limit_price=level,
             size=size,
             stop_loss=stop_loss,
             take_profit=take_profit,
             trailing_stop=trailing_stop,
-            entry_time=datetime.now(UTC),
-            grid_level=level,
-            order_id=order_id
+            submit_time=datetime.now(UTC),
+            grid_level=level
         )
-        
-        self.positions.append(position)
-        self.position_count += 1
+        self.pending_orders[order_id] = pending
         
         reason = f"Grid Short ({trend.value}, RSI: {rsi:.1f})"
-        print(f"  ⬇️ SHORT ENTRY @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
+        print(f"  ⬇️ SHORT ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
         print(f"     Reason: {reason}")
+        print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
+    
+    # =========================================================================
+    # PENDING ORDER MANAGEMENT
+    # =========================================================================
+    
+    async def _check_pending_orders(self):
+        """Check if any pending orders have been filled or cancelled."""
+        if not self.pending_orders:
+            return
+        
+        # Get all open orders from broker
+        try:
+            open_orders = self.broker._ib.openOrders()
+            open_order_ids = {trade.order.orderId for trade in self.broker._ib.openTrades()}
+        except:
+            open_order_ids = set()
+        
+        # Check each pending order
+        for order_id in list(self.pending_orders.keys()):
+            pending = self.pending_orders[order_id]
+            
+            # Try to find the trade
+            trade = None
+            for t in self.broker._ib.trades():
+                if t.order.orderId == order_id:
+                    trade = t
+                    break
+            
+            if trade is None:
+                # Order not found - likely expired or cancelled
+                print(f"  ⚠️ Order {order_id} not found - removing from pending")
+                del self.pending_orders[order_id]
+                continue
+            
+            # Check if filled
+            if trade.orderStatus.status == 'Filled' and trade.fills:
+                fill_price = trade.fills[-1].execution.price
+                
+                # Create actual position with FILL price
+                position = Position(
+                    side=pending.side,
+                    entry_price=fill_price,  # Use actual fill price!
+                    size=pending.size,
+                    stop_loss=pending.stop_loss,
+                    take_profit=pending.take_profit,
+                    trailing_stop=pending.trailing_stop,
+                    entry_time=datetime.now(UTC),
+                    grid_level=pending.grid_level,
+                    order_id=order_id
+                )
+                
+                self.positions.append(position)
+                self.position_count += 1
+                del self.pending_orders[order_id]
+                
+                print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id})")
+                print(f"     Position created | SL: {pending.stop_loss:.2f} | TP: {pending.take_profit:.2f}")
+            
+            # Check if cancelled/expired
+            elif trade.orderStatus.status in ['Cancelled', 'ApiCancelled', 'Inactive']:
+                print(f"  ❌ Order {order_id} cancelled/expired - removing from pending")
+                del self.pending_orders[order_id]
+            
+            # Still pending - check age
+            else:
+                age_seconds = (datetime.now(UTC) - pending.submit_time).total_seconds()
+                if age_seconds > 120:  # 2 minutes timeout
+                    print(f"  ⏰ Order {order_id} timed out after {age_seconds:.0f}s - cancelling")
+                    try:
+                        self.broker._ib.cancelOrder(trade.order)
+                    except:
+                        pass
+                    del self.pending_orders[order_id]
     
     # =========================================================================
     # EXIT LOGIC
@@ -476,6 +574,9 @@ class GridStrategy:
             self.daily_pnl = 0.0
             self.last_reset_day = current_day
         
+        # ===== CHECK PENDING ORDERS FIRST =====
+        await self._check_pending_orders()
+        
         # Display bar info
         local_time = bar['time'].astimezone(CENTRAL)
         time_str = local_time.strftime('%Y-%m-%d %H:%M')
@@ -514,10 +615,16 @@ class GridStrategy:
         if self.current_trend != self.confirmed_trend:
             trend_display += f" (raw: {self.current_trend.value})"
         
+        total_orders = self.position_count + len(self.pending_orders)
         print(f"  📊 Trend: {trend_display} | Grid: {grid_size:.3f}%")
         print(f"     RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
         print(f"     MA: {ind['short_ma']:.2f} / {ind['long_ma']:.2f} / {ind['super_long_ma']:.2f}")
-        print(f"     Anchor: {self.grid_anchor_price:.2f} | Positions: {self.position_count}/{self.config.max_positions} | Daily P&L: {self.daily_pnl:+.2f}")
+        print(f"     Anchor: {self.grid_anchor_price:.2f} | Filled: {self.position_count} | Pending: {len(self.pending_orders)} | Daily P&L: {self.daily_pnl:+.2f}")
+        
+        # Display pending orders
+        for order_id, pending in self.pending_orders.items():
+            age_sec = (datetime.now(UTC) - pending.submit_time).total_seconds()
+            print(f"     ⏳ PENDING {pending.side.upper()} @ {pending.limit_price:.2f} (order {order_id}, {age_sec:.0f}s)")
         
         # Display open position details
         for pos in self.positions:
