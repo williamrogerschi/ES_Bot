@@ -389,8 +389,8 @@ class GridStrategy:
         
         # Get all open orders from broker
         try:
-            open_orders = self.broker._ib.openOrders()
-            open_order_ids = {trade.order.orderId for trade in self.broker._ib.openTrades()}
+            open_orders = self.broker.ib.openOrders()
+            open_order_ids = {trade.order.orderId for trade in self.broker.ib.openTrades()}
         except:
             open_order_ids = set()
         
@@ -400,7 +400,7 @@ class GridStrategy:
             
             # Try to find the trade
             trade = None
-            for t in self.broker._ib.trades():
+            for t in self.broker.ib.trades():
                 if t.order.orderId == order_id:
                     trade = t
                     break
