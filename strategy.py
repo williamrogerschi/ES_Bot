@@ -358,7 +358,7 @@ class GridStrategy:
         # Place order
         trade = await self.broker.place_limit_order('SELL', 1, level)
         order_id = trade.order.orderId
-                
+        
         # Track as PENDING - position created only after fill confirmed
         pending = PendingOrder(
             order_id=order_id,
@@ -425,7 +425,10 @@ class GridStrategy:
                     trailing_stop=pending.trailing_stop,
                     entry_time=datetime.now(UTC),
                     grid_level=pending.grid_level,
-                    order_id=order_id
+                    order_id=order_id,
+                    highest_price=fill_price if pending.side == 'long' else None,
+                    lowest_price=fill_price if pending.side == 'short' else None,
+                    trailing_activated=False
                 )
                 
                 self.positions.append(position)
@@ -433,7 +436,7 @@ class GridStrategy:
                 del self.pending_orders[order_id]
                 
                 print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id})")
-                print(f"     Position created | SL: {pending.stop_loss:.2f} | TP: {pending.take_profit:.2f}")
+                print(f"     Position created | SL: {pending.stop_loss:.2f} | TP: {pending.take_profit:.2f} | Trail activates @ +{self.config.trailing_stop_activation_pts:.1f} pts")
             
             # Check if cancelled/expired
             elif trade.orderStatus.status in ['Cancelled', 'ApiCancelled', 'Inactive']:
@@ -446,7 +449,7 @@ class GridStrategy:
                 if age_seconds > 120:  # 2 minutes timeout
                     print(f"  ⏰ Order {order_id} timed out after {age_seconds:.0f}s - cancelling")
                     try:
-                        self.broker._ib.cancelOrder(trade.order)
+                        self.broker.ib.cancelOrder(trade.order)
                     except:
                         pass
                     del self.pending_orders[order_id]
@@ -481,17 +484,61 @@ class GridStrategy:
             # Update trailing stop (only if enabled)
             if self.config.use_trailing_stop and position.trailing_stop is not None:
                 if position.side == 'long':
-                    new_trailing = current_price * (1 - self.config.trailing_stop_pct / 100)
-                    if new_trailing > position.trailing_stop:
-                        position.trailing_stop = new_trailing
-                    if low <= position.trailing_stop:
+                    # Track highest price using bar HIGH
+                    if position.highest_price is None:
+                        position.highest_price = high
+                    elif high > position.highest_price:
+                        position.highest_price = high
+                    
+                    # Calculate profit from entry
+                    profit_pts = position.highest_price - position.entry_price
+                    
+                    # Only activate trailing after threshold reached
+                    if profit_pts >= self.config.trailing_stop_activation_pts:
+                        if not position.trailing_activated:
+                            position.trailing_activated = True
+                            print(f"     🔒 Trailing stop ACTIVATED at +{profit_pts:.2f} pts")
+                        
+                        # Calculate new trailing stop from highest price
+                        new_trailing = self._round_to_tick(
+                            position.highest_price - (position.entry_price * self.config.trailing_stop_pct / 100)
+                        )
+                        
+                        # Only move stop UP (never down)
+                        if new_trailing > position.trailing_stop:
+                            position.trailing_stop = new_trailing
+                    
+                    # Check if trailing stop hit (only if activated)
+                    if position.trailing_activated and low <= position.trailing_stop:
                         await self._close_position(position, position.trailing_stop, "Trailing Stop")
                         continue
                 else:
-                    new_trailing = current_price * (1 + self.config.trailing_stop_pct / 100)
-                    if new_trailing < position.trailing_stop:
-                        position.trailing_stop = new_trailing
-                    if high >= position.trailing_stop:
+                    # SHORT position - track lowest price using bar LOW
+                    if position.lowest_price is None:
+                        position.lowest_price = low
+                    elif low < position.lowest_price:
+                        position.lowest_price = low
+                    
+                    # Calculate profit from entry
+                    profit_pts = position.entry_price - position.lowest_price
+                    
+                    # Only activate trailing after threshold reached
+                    if profit_pts >= self.config.trailing_stop_activation_pts:
+                        if not position.trailing_activated:
+                            position.trailing_activated = True
+                            print(f"     🔒 Trailing stop ACTIVATED at +{profit_pts:.2f} pts")
+                        
+                        # Calculate new trailing stop from lowest price
+                        new_trailing = self._round_to_tick(
+                            position.lowest_price + (position.entry_price * self.config.trailing_stop_pct / 100)
+                        )
+                        
+                        # Only move stop DOWN (never up)
+                        if new_trailing < position.trailing_stop:
+                            position.trailing_stop = new_trailing
+                    
+                    # Check if trailing stop hit (only if activated)
+                    if position.trailing_activated and high >= position.trailing_stop:
                         await self._close_position(position, position.trailing_stop, "Trailing Stop")
                         continue
             
@@ -630,11 +677,32 @@ class GridStrategy:
         for pos in self.positions:
             if pos.side == 'long':
                 unrealized_pnl = (self.last_price - pos.entry_price) * pos.size
+                profit_pts = (pos.highest_price or self.last_price) - pos.entry_price
             else:
                 unrealized_pnl = (pos.entry_price - self.last_price) * pos.size
+                profit_pts = pos.entry_price - (pos.lowest_price or self.last_price)
             
-            active_stop = pos.trailing_stop if self.config.use_trailing_stop and pos.trailing_stop else pos.stop_loss
-            print(f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | SL: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+.2f}")
+            # Show hard SL until trailing activates
+            if self.config.use_trailing_stop and pos.trailing_activated:
+                active_stop = pos.trailing_stop
+                stop_label = "Trail"
+            else:
+                active_stop = pos.stop_loss
+                stop_label = "SL"
+            
+            # Build status line
+            status = f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+.2f}"
+            
+            # Add trailing activation status
+            if self.config.use_trailing_stop:
+                if pos.trailing_activated:
+                    status += f" | 🔒 Trailing"
+                else:
+                    pts_to_activate = self.config.trailing_stop_activation_pts - profit_pts
+                    if pts_to_activate > 0:
+                        status += f" | +{pts_to_activate:.1f} to trail"
+            
+            print(status)
         
         # Check daily loss limit
         if self._check_daily_loss_limit():

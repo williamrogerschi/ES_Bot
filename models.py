@@ -27,6 +27,9 @@ class Position:
     entry_time: datetime
     grid_level: float
     order_id: Optional[int] = None
+    highest_price: Optional[float] = None  # Track highest price since entry (for longs)
+    lowest_price: Optional[float] = None   # Track lowest price since entry (for shorts)
+    trailing_activated: bool = False       # Whether trailing stop has activated
 
 
 @dataclass
@@ -77,7 +80,8 @@ class StrategyConfig:
     # Risk management
     stop_loss_pct: float = 0.15          # ~10 pts
     take_profit_pct: float = 0.20        # ~14 pts
-    trailing_stop_pct: float = 0.10      # ~7 pts
+    trailing_stop_pct: float = 0.10      # ~7 pts trailing distance
+    trailing_stop_activation_pts: float = 5.0  # Trailing only activates after +X pts profit
     use_trailing_stop: bool = True       # Enable trailing stop
     max_loss_per_day_pct: float = 2.0    # $2k on $100k
     
@@ -110,13 +114,7 @@ class StrategyConfig:
 # =============================================================================
 
 def get_scalp_config() -> StrategyConfig:
-    """
-    Single contract scalper with trailing stop.
-    - 1 position max
-    - Tight SL/TP
-    - Trailing stop enabled
-    - Quick entries/exits
-    """
+
     return StrategyConfig(
         # Single position
         max_positions=1,
@@ -127,12 +125,13 @@ def get_scalp_config() -> StrategyConfig:
         atr_multiplier=1.2,
         max_anchor_distance_grids=2,
         
-        # Tight risk management
-        stop_loss_pct=0.12,              # ~8 pts
-        take_profit_pct=0.18,            # ~12 pts
-        trailing_stop_pct=0.07,          # ~5 pts
+        # Tiered risk management
+        stop_loss_pct=0.12,  
+        take_profit_pct=0.18,  
+        trailing_stop_pct=0.07, 
+        trailing_stop_activation_pts=5.0,
         use_trailing_stop=True,
-        max_loss_per_day_pct=1.0,        # $1k on $100k
+        max_loss_per_day_pct=1.0,  
         
         # Faster trend response
         trend_confirmation_bars=2,
@@ -147,13 +146,7 @@ def get_scalp_config() -> StrategyConfig:
 
 
 def get_grid_config() -> StrategyConfig:
-    """
-    Multi-position grid trading without trailing stop.
-    - Up to 3 positions
-    - Wider SL to accommodate grid levels
-    - No trailing stop (let grid work)
-    - Fixed TP for all positions
-    """
+
     return StrategyConfig(
         # Multiple positions
         max_positions=3,
@@ -165,11 +158,11 @@ def get_grid_config() -> StrategyConfig:
         max_anchor_distance_grids=3,
         
         # Wider risk management (SL must cover grid levels)
-        stop_loss_pct=0.40,              # ~28 pts (covers 3 grid levels)
-        take_profit_pct=0.25,            # ~17 pts
-        trailing_stop_pct=0.0,           # Not used
-        use_trailing_stop=False,         # DISABLED for grid
-        max_loss_per_day_pct=2.0,        # $2k on $100k
+        stop_loss_pct=0.40, 
+        take_profit_pct=0.25, 
+        trailing_stop_pct=0.0, 
+        use_trailing_stop=False,
+        max_loss_per_day_pct=2.0, 
         
         # Slower trend response (grid needs stability)
         trend_confirmation_bars=3,
