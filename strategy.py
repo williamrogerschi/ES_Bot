@@ -415,20 +415,40 @@ class GridStrategy:
             if trade.orderStatus.status == 'Filled' and trade.fills:
                 fill_price = trade.fills[-1].execution.price
                 
-                # Create actual position with FILL price
+                # Calculate stops based on FILL PRICE using POINTS (not percentage)
+                if pending.side == 'long':
+                    stop_loss = self._round_to_tick(fill_price - self.config.stop_loss_pts)
+                    take_profit = self._round_to_tick(fill_price + self.config.take_profit_pts)
+                else:
+                    stop_loss = self._round_to_tick(fill_price + self.config.stop_loss_pts)
+                    take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
+                
+                # === NATIVE IB STOP ORDER ===
+                stop_action = 'SELL' if pending.side == 'long' else 'BUY'
+                stop_trade = await self.broker.place_stop_order(stop_action, 1, stop_loss)
+                stop_order_id = stop_trade.order.orderId if stop_trade else None
+                
+                # === NATIVE IB TAKE PROFIT ORDER ===
+                tp_action = 'SELL' if pending.side == 'long' else 'BUY'
+                tp_trade = await self.broker.place_limit_order(tp_action, 1, take_profit)
+                tp_order_id = tp_trade.order.orderId if tp_trade else None
+                
+                # Create actual position with FILL price and IB order IDs
                 position = Position(
                     side=pending.side,
-                    entry_price=fill_price,  # Use actual fill price!
+                    entry_price=fill_price,
                     size=pending.size,
-                    stop_loss=pending.stop_loss,
-                    take_profit=pending.take_profit,
-                    trailing_stop=pending.trailing_stop,
+                    stop_loss=stop_loss,
+                    take_profit=take_profit,
+                    trailing_stop=None,  # No trailing until activated
                     entry_time=datetime.now(UTC),
                     grid_level=pending.grid_level,
                     order_id=order_id,
+                    stop_order_id=stop_order_id,
+                    tp_order_id=tp_order_id,
+                    trailing_activated=False,
                     highest_price=fill_price if pending.side == 'long' else None,
-                    lowest_price=fill_price if pending.side == 'short' else None,
-                    trailing_activated=False
+                    lowest_price=fill_price if pending.side == 'short' else None
                 )
                 
                 self.positions.append(position)
@@ -436,7 +456,8 @@ class GridStrategy:
                 del self.pending_orders[order_id]
                 
                 print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id})")
-                print(f"     Position created | SL: {pending.stop_loss:.2f} | TP: {pending.take_profit:.2f} | Trail activates @ +{self.config.trailing_stop_activation_pts:.1f} pts")
+                print(f"     📊 Bracket placed: SL #{stop_order_id} @ {stop_loss:.2f} | TP #{tp_order_id} @ {take_profit:.2f}")
+                print(f"     Trail activates @ +{self.config.trailing_activation_pts:.1f} pts")
             
             # Check if cancelled/expired
             elif trade.orderStatus.status in ['Cancelled', 'ApiCancelled', 'Inactive']:
@@ -459,103 +480,185 @@ class GridStrategy:
     # =========================================================================
     
     async def _check_exits(self, bar: Dict):
-        """Check exit conditions for all positions."""
-        current_price = bar['close']
+        """Check if IB stop/TP orders have filled, and manage trailing stops."""
         high = bar['high']
         low = bar['low']
+        current_price = bar['close']
         
-        for position in list(self.positions):
-            # Check stop loss
-            if position.side == 'long' and low <= position.stop_loss:
-                await self._close_position(position, position.stop_loss, "Stop Loss")
-                continue
-            elif position.side == 'short' and high >= position.stop_loss:
-                await self._close_position(position, position.stop_loss, "Stop Loss")
-                continue
+        positions_to_remove = []
+        
+        for position in self.positions:
+            exit_price = None
+            exit_reason = None
+            order_to_cancel = None
             
-            # Check take profit
-            if position.side == 'long' and high >= position.take_profit:
-                await self._close_position(position, position.take_profit, "Take Profit")
-                continue
-            elif position.side == 'short' and low <= position.take_profit:
-                await self._close_position(position, position.take_profit, "Take Profit")
-                continue
-            
-            # Update trailing stop (only if enabled)
-            if self.config.use_trailing_stop and position.trailing_stop is not None:
-                if position.side == 'long':
-                    # Track highest price using bar HIGH
-                    if position.highest_price is None:
-                        position.highest_price = high
-                    elif high > position.highest_price:
-                        position.highest_price = high
-                    
-                    # Calculate profit from entry
-                    profit_pts = position.highest_price - position.entry_price
-                    
-                    # Only activate trailing after threshold reached
-                    if profit_pts >= self.config.trailing_stop_activation_pts:
-                        if not position.trailing_activated:
-                            position.trailing_activated = True
-                            print(f"     🔒 Trailing stop ACTIVATED at +{profit_pts:.2f} pts")
-                        
-                        # Calculate new trailing stop from highest price
-                        new_trailing = self._round_to_tick(
-                            position.highest_price - (position.entry_price * self.config.trailing_stop_pct / 100)
-                        )
-                        
-                        # Only move stop UP (never down)
-                        if new_trailing > position.trailing_stop:
-                            position.trailing_stop = new_trailing
-                    
-                    # Check if trailing stop hit (only if activated)
-                    if position.trailing_activated and low <= position.trailing_stop:
-                        await self._close_position(position, position.trailing_stop, "Trailing Stop")
-                        continue
+            # === CHECK IF IB STOP ORDER FILLED ===
+            if position.stop_order_id and position.stop_order_id in self.broker._filled_orders:
+                filled_trade = self.broker._filled_orders[position.stop_order_id]
+                if filled_trade.fills:
+                    exit_price = filled_trade.fills[-1].execution.price
                 else:
-                    # SHORT position - track lowest price using bar LOW
-                    if position.lowest_price is None:
-                        position.lowest_price = low
-                    elif low < position.lowest_price:
-                        position.lowest_price = low
-                    
-                    # Calculate profit from entry
-                    profit_pts = position.entry_price - position.lowest_price
-                    
-                    # Only activate trailing after threshold reached
-                    if profit_pts >= self.config.trailing_stop_activation_pts:
-                        if not position.trailing_activated:
-                            position.trailing_activated = True
-                            print(f"     🔒 Trailing stop ACTIVATED at +{profit_pts:.2f} pts")
-                        
-                        # Calculate new trailing stop from lowest price
-                        new_trailing = self._round_to_tick(
-                            position.lowest_price + (position.entry_price * self.config.trailing_stop_pct / 100)
-                        )
-                        
-                        # Only move stop DOWN (never up)
-                        if new_trailing < position.trailing_stop:
-                            position.trailing_stop = new_trailing
-                    
-                    # Check if trailing stop hit (only if activated)
-                    if position.trailing_activated and high >= position.trailing_stop:
-                        await self._close_position(position, position.trailing_stop, "Trailing Stop")
-                        continue
+                    exit_price = position.stop_loss
+                
+                exit_reason = "Trailing Stop" if position.trailing_activated else "Stop Loss"
+                order_to_cancel = position.tp_order_id
+                
+                # Clean up
+                del self.broker._filled_orders[position.stop_order_id]
             
-            # Trend reversal exit (only if enabled and past cooldown)
+            # === CHECK IF IB TAKE PROFIT ORDER FILLED ===
+            elif position.tp_order_id and position.tp_order_id in self.broker._filled_orders:
+                filled_trade = self.broker._filled_orders[position.tp_order_id]
+                if filled_trade.fills:
+                    exit_price = filled_trade.fills[-1].execution.price
+                else:
+                    exit_price = position.take_profit
+                
+                exit_reason = "Take Profit"
+                order_to_cancel = position.stop_order_id
+                
+                # Clean up
+                del self.broker._filled_orders[position.tp_order_id]
+            
+            # === PROCESS EXIT IF FILLED ===
+            if exit_price:
+                # Cancel the other bracket order
+                if order_to_cancel:
+                    await self.broker.cancel_order_by_id(order_to_cancel)
+                
+                # Calculate P&L
+                if position.side == 'long':
+                    pnl_pts = exit_price - position.entry_price
+                else:
+                    pnl_pts = position.entry_price - exit_price
+                
+                pnl_dollars = pnl_pts * 50  # ES = $50 per point
+                
+                self.daily_pnl += pnl_dollars
+                self.equity += pnl_dollars
+                
+                emoji = "✅" if pnl_pts >= 0 else "❌"
+                print(f"  {emoji} EXIT {position.side.upper()} @ {exit_price:.2f} | {exit_reason}")
+                print(f"     P&L: {pnl_pts:+.2f} pts (${pnl_dollars:+.2f}) | Daily: ${self.daily_pnl:+.2f}")
+                
+                positions_to_remove.append(position)
+                continue
+            
+            # === UPDATE TRAILING STOP (if not exited) ===
+            if position.side == 'long':
+                # Track highest price using bar HIGH
+                if position.highest_price is None or high > position.highest_price:
+                    position.highest_price = high
+                
+                # Calculate current profit from entry
+                profit_pts = position.highest_price - position.entry_price
+                
+                # Check if trailing should activate
+                if not position.trailing_activated and profit_pts >= self.config.trailing_activation_pts:
+                    position.trailing_activated = True
+                    
+                    # Calculate new trailing stop
+                    new_stop = self._round_to_tick(position.highest_price - self.config.trailing_distance_pts)
+                    
+                    # Only update if new stop is higher than current stop
+                    if new_stop > position.stop_loss:
+                        old_stop = position.stop_loss
+                        position.stop_loss = new_stop
+                        position.trailing_stop = new_stop
+                        
+                        # === MODIFY IB STOP ORDER ===
+                        if position.stop_order_id:
+                            await self.broker.modify_stop_order(position.stop_order_id, new_stop)
+                        
+                        print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
+                
+                # If trailing already active, update stop on new highs
+                elif position.trailing_activated:
+                    new_stop = self._round_to_tick(position.highest_price - self.config.trailing_distance_pts)
+                    
+                    if new_stop > position.stop_loss:
+                        old_stop = position.stop_loss
+                        position.stop_loss = new_stop
+                        position.trailing_stop = new_stop
+                        
+                        # === MODIFY IB STOP ORDER ===
+                        if position.stop_order_id:
+                            await self.broker.modify_stop_order(position.stop_order_id, new_stop)
+                        
+                        print(f"  📈 TRAIL UPDATE: High {position.highest_price:.2f} | Stop: {old_stop:.2f} → {new_stop:.2f}")
+            
+            else:  # SHORT position
+                # Track lowest price using bar LOW
+                if position.lowest_price is None or low < position.lowest_price:
+                    position.lowest_price = low
+                
+                # Calculate current profit from entry
+                profit_pts = position.entry_price - position.lowest_price
+                
+                # Check if trailing should activate
+                if not position.trailing_activated and profit_pts >= self.config.trailing_activation_pts:
+                    position.trailing_activated = True
+                    
+                    # Calculate new trailing stop
+                    new_stop = self._round_to_tick(position.lowest_price + self.config.trailing_distance_pts)
+                    
+                    # Only update if new stop is lower than current stop
+                    if new_stop < position.stop_loss:
+                        old_stop = position.stop_loss
+                        position.stop_loss = new_stop
+                        position.trailing_stop = new_stop
+                        
+                        # === MODIFY IB STOP ORDER ===
+                        if position.stop_order_id:
+                            await self.broker.modify_stop_order(position.stop_order_id, new_stop)
+                        
+                        print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
+                
+                # If trailing already active, update stop on new lows
+                elif position.trailing_activated:
+                    new_stop = self._round_to_tick(position.lowest_price + self.config.trailing_distance_pts)
+                    
+                    if new_stop < position.stop_loss:
+                        old_stop = position.stop_loss
+                        position.stop_loss = new_stop
+                        position.trailing_stop = new_stop
+                        
+                        # === MODIFY IB STOP ORDER ===
+                        if position.stop_order_id:
+                            await self.broker.modify_stop_order(position.stop_order_id, new_stop)
+                        
+                        print(f"  📉 TRAIL UPDATE: Low {position.lowest_price:.2f} | Stop: {old_stop:.2f} → {new_stop:.2f}")
+            
+            # === TREND REVERSAL EXIT (optional) ===
             if self.config.use_trend_reversal_exit:
                 time_in_trade = (datetime.now(UTC) - position.entry_time).total_seconds() / 60
                 if time_in_trade >= self.config.trend_cooldown_minutes:
                     if self._should_exit_on_trend_reversal(position):
+                        # Cancel IB bracket orders and close at market
+                        if position.stop_order_id:
+                            await self.broker.cancel_order_by_id(position.stop_order_id)
+                        if position.tp_order_id:
+                            await self.broker.cancel_order_by_id(position.tp_order_id)
                         await self._close_position(position, current_price, "Trend Reversal")
-                        continue
+                        continue  # _close_position handles removal
             
-            # Time-based exit
+            # === TIME-BASED EXIT ===
             if self.config.time_based_exit:
                 holding_time = datetime.now(UTC) - position.entry_time
                 if holding_time > timedelta(hours=self.config.max_holding_hours):
+                    # Cancel IB bracket orders and close at market
+                    if position.stop_order_id:
+                        await self.broker.cancel_order_by_id(position.stop_order_id)
+                    if position.tp_order_id:
+                        await self.broker.cancel_order_by_id(position.tp_order_id)
                     await self._close_position(position, current_price, "Time Exit")
-                    continue
+                    continue  # _close_position handles removal
+        
+        # Remove closed positions
+        for position in positions_to_remove:
+            if position in self.positions:
+                self.positions.remove(position)
+                self.position_count = max(0, self.position_count - 1)
     
     def _should_exit_on_trend_reversal(self, position: Position) -> bool:
         """Check if position should exit due to trend reversal."""
@@ -717,7 +820,7 @@ class GridStrategy:
         # ===== CHECK ENTRIES AGAIN WITH NEW GRID =====
         await self._check_entries(bar)
         
-        # Display grid levels relative to current price
+        # Display grid levels relative to current price with next entry
         if self.grid_levels:
             above = [f"{l:.2f}" for l in self.grid_levels if l > self.last_price][:3]
             below = [f"{l:.2f}" for l in sorted(self.grid_levels, reverse=True) if l < self.last_price][:3]
