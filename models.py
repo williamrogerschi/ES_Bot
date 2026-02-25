@@ -1,23 +1,21 @@
-"""
-Data models for ES Futures Grid Trading Strategy
-"""
-
-from dataclasses import dataclass
+# models.py
+from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Optional
+from enum import Enum
 
 
 class TrendState(Enum):
     STRONG_BULLISH = "strong_bullish"
     MODERATE_BULLISH = "moderate_bullish"
-    SIDEWAYS = "sideways"
-    MODERATE_BEARISH = "moderate_bearish"
     STRONG_BEARISH = "strong_bearish"
+    MODERATE_BEARISH = "moderate_bearish"
+    SIDEWAYS = "sideways"
 
 
 @dataclass
 class Position:
+    """Tracks an open position with its associated IB orders."""
     side: str  # 'long' or 'short'
     entry_price: float
     size: float
@@ -26,37 +24,28 @@ class Position:
     trailing_stop: Optional[float]
     entry_time: datetime
     grid_level: float
-    order_id: Optional[int] = None
-    highest_price: Optional[float] = None  # Track highest price since entry (for longs)
-    lowest_price: Optional[float] = None   # Track lowest price since entry (for shorts)
-    trailing_activated: bool = False       # Whether trailing stop has activated
-
-
-@dataclass
-class PendingOrder:
-    """Track orders that have been submitted but not yet filled."""
-    order_id: int
-    side: str  # 'long' or 'short'
-    limit_price: float
-    size: float
-    stop_loss: float
-    take_profit: float
-    trailing_stop: Optional[float]
-    submit_time: datetime
-    grid_level: float
+    order_id: Optional[int] = None  # Entry order ID
+    
+    # Native IB order tracking
+    stop_order_id: Optional[int] = None  # IB stop order ID
+    tp_order_id: Optional[int] = None    # IB take profit order ID
+    
+    # Trailing stop state
+    trailing_activated: bool = False  # Changed from trailing_active
+    highest_price: Optional[float] = None  # For long positions
+    lowest_price: Optional[float] = None   # For short positions
 
 
 @dataclass
 class StrategyConfig:
-    # Instrument settings
-    tick_size: float = 0.25              # ES/NQ = 0.25, CL = 0.01, GC = 0.10
-    
     # Grid settings
-    base_grid_pct: float = 0.10          # ~7 pts on ES
-    max_positions: int = 5
+    base_grid_pct: float = 0.10
+    max_positions: int = 1
     use_volatility_grid: bool = True
-    lookback_for_anchor: int = 20
-    max_anchor_distance_grids: int = 3   # Cap anchor at N grid widths from price
+    max_anchor_distance_grids: int = 3  # Max grids away from current price for anchor
+    
+    # Tick size
+    tick_size: float = 0.25  # ES tick size
     
     # ATR settings
     atr_length: int = 14
@@ -66,6 +55,12 @@ class StrategyConfig:
     rsi_length: int = 14
     rsi_overbought: int = 70
     rsi_oversold: int = 30
+    
+    # RSI entry thresholds (separate from trend determination)
+    entry_rsi_bearish: float = 60.0       # Short when RSI > this in bearish trend
+    entry_rsi_bullish: float = 40.0       # Long when RSI < this in bullish trend
+    entry_rsi_sideways_short: float = 65.0  # Short when RSI > this in sideways
+    entry_rsi_sideways_long: float = 35.0   # Long when RSI < this in sideways
     
     # MA settings
     short_ma_length: int = 20
@@ -77,107 +72,52 @@ class StrategyConfig:
     macd_slow: int = 26
     macd_signal: int = 9
     
-    # Risk management
-    stop_loss_pct: float = 0.15          # ~10 pts
-    take_profit_pct: float = 0.20        # ~14 pts
-    trailing_stop_pct: float = 0.10      # ~7 pts trailing distance
-    trailing_stop_activation_pts: float = 5.0  # Trailing only activates after +X pts profit
-    use_trailing_stop: bool = True       # Enable trailing stop
-    max_loss_per_day_pct: float = 2.0    # $2k on $100k
+    # Trend confirmation
+    trend_confirmation_bars: int = 2  # Bars needed to confirm trend change
+    
+    # Risk management - in POINTS for ES
+    stop_loss_pts: float = 8.0        # Hard stop: 8 points
+    take_profit_pts: float = 12.0     # Take profit: 12 points
+    trailing_activation_pts: float = 5.0  # Activate trailing after +5 pts
+    trailing_distance_pts: float = 5.0    # Trail by 5 pts from high/low
+    
+    # Legacy pct-based (used in current strategy)
+    stop_loss_pct: float = 0.12
+    take_profit_pct: float = 0.18
+    use_trailing_stop: bool = True
+    trailing_stop_pct: float = 0.07
+    
+    max_loss_per_day_pct: float = 1.0
+    
+    # Trend reversal exit
+    use_trend_reversal_exit: bool = True
+    trend_cooldown_minutes: int = 5  # Min time before trend reversal exit
     
     # Time-based exit
     time_based_exit: bool = True
-    max_holding_hours: int = 48
+    max_holding_hours: int = 4
     
     # Position sizing
-    use_risk_based_position: bool = True
+    use_risk_based_position: bool = False
     risk_per_trade_pct: float = 1.0
     max_leverage: float = 3.0
     
+    # Grid anchor settings
+    lookback_for_anchor: int = 20  # bars to look back for swing high/low
+    
     # Account
     initial_equity: float = 100000.0
-    
-    # ES-specific: Trend confirmation
-    trend_confirmation_bars: int = 3     # Bars needed to confirm trend change
-    trend_cooldown_minutes: int = 5      # Ignore trend changes after entry
-    use_trend_reversal_exit: bool = False  # Disabled for ES (too choppy)
-    
-    # Entry RSI thresholds (can be loosened for testing)
-    entry_rsi_bearish: float = 60        # RSI > this for shorts in bearish
-    entry_rsi_bullish: float = 40        # RSI < this for longs in bullish
-    entry_rsi_sideways_short: float = 70 # RSI > this for shorts in sideways
-    entry_rsi_sideways_long: float = 30  # RSI < this for longs in sideways
 
 
-# =============================================================================
-# CONFIG PRESETS
-# =============================================================================
-
-def get_scalp_config() -> StrategyConfig:
-
-    return StrategyConfig(
-        # Single position
-        max_positions=1,
-        
-        # Grid (still used for entry levels)
-        base_grid_pct=0.08,              # ~5.5 pts on ES
-        use_volatility_grid=True,
-        atr_multiplier=1.2,
-        max_anchor_distance_grids=2,
-        
-        # Tiered risk management
-        stop_loss_pct=0.12,  
-        take_profit_pct=0.18,  
-        trailing_stop_pct=0.07, 
-        trailing_stop_activation_pts=5.0,
-        use_trailing_stop=True,
-        max_loss_per_day_pct=1.0,  
-        
-        # Faster trend response
-        trend_confirmation_bars=2,
-        use_trend_reversal_exit=False,
-        
-        # Standard entries
-        entry_rsi_bearish=60,
-        entry_rsi_bullish=40,
-        entry_rsi_sideways_short=70,
-        entry_rsi_sideways_long=30,
-    )
-
-
-def get_grid_config() -> StrategyConfig:
-
-    return StrategyConfig(
-        # Multiple positions
-        max_positions=3,
-        
-        # Grid spacing
-        base_grid_pct=0.12,              # ~8 pts on ES
-        use_volatility_grid=True,
-        atr_multiplier=1.5,
-        max_anchor_distance_grids=3,
-        
-        # Wider risk management (SL must cover grid levels)
-        stop_loss_pct=0.40, 
-        take_profit_pct=0.25, 
-        trailing_stop_pct=0.0, 
-        use_trailing_stop=False,
-        max_loss_per_day_pct=2.0, 
-        
-        # Slower trend response (grid needs stability)
-        trend_confirmation_bars=3,
-        use_trend_reversal_exit=False,
-        
-        # Standard entries
-        entry_rsi_bearish=60,
-        entry_rsi_bullish=40,
-        entry_rsi_sideways_short=70,
-        entry_rsi_sideways_long=30,
-    )
-
-
-# Preset registry
-CONFIG_PRESETS = {
-    'scalp': get_scalp_config,
-    'grid': get_grid_config,
-}
+@dataclass
+class PendingOrder:
+    """Tracks a pending limit order waiting for fill."""
+    order_id: int
+    side: str  # 'long' or 'short'
+    limit_price: float
+    size: float  # Added size field
+    stop_loss: float
+    take_profit: float
+    trailing_stop: Optional[float]  # Added trailing_stop field
+    submit_time: datetime
+    grid_level: float
