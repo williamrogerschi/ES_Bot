@@ -767,7 +767,7 @@ class GridStrategy:
         
         total_orders = self.position_count + len(self.pending_orders)
         print(f"  📈 Trend: {trend_display} | Grid: {grid_size:.3f}%")
-        print(f"     RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
+        print(f"  📡 RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
         print(f"  ⚓ Anchor: {self.grid_anchor_price:.2f} | Filled: {self.position_count} | Pending: {len(self.pending_orders)}")
 
         
@@ -825,5 +825,5 @@ class GridStrategy:
             above = [f"{l:.2f}" for l in self.grid_levels if l > self.last_price][:3]
             below = [f"{l:.2f}" for l in sorted(self.grid_levels, reverse=True) if l < self.last_price][:3]
 
-            print(f"     Grid ↑: {above}  Grid ↓: {below}")
+            print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
             print(f"  💰 Daily P&L: {self.daily_pnl:+.2f}")
