@@ -344,7 +344,7 @@ class GridStrategy:
         trailing_stop = self._round_to_tick(level * (1 - self.config.trailing_stop_pct / 100)) if self.config.use_trailing_stop else None
         
         # Place order
-        trade = await self.broker.place_limit_order('BUY', 1, level)
+        trade = await self.broker.place_limit_order('BUY', self.config.contracts_per_trade, level)
         order_id = trade.order.orderId
         
         # Track as PENDING - position created only after fill confirmed
@@ -377,7 +377,7 @@ class GridStrategy:
         trailing_stop = self._round_to_tick(level * (1 + self.config.trailing_stop_pct / 100)) if self.config.use_trailing_stop else None
         
         # Place order
-        trade = await self.broker.place_limit_order('SELL', 1, level)
+        trade = await self.broker.place_limit_order('SELL', self.config.contracts_per_trade, level)
         order_id = trade.order.orderId
         
         # Track as PENDING - position created only after fill confirmed
@@ -446,12 +446,12 @@ class GridStrategy:
                 
                 # === NATIVE IB STOP ORDER ===
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
-                stop_trade = await self.broker.place_stop_order(stop_action, 1, stop_loss)
+                stop_trade = await self.broker.place_stop_order(stop_action, self.config.contracts_per_trade, stop_loss)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 
                 # === NATIVE IB TAKE PROFIT ORDER ===
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
-                tp_trade = await self.broker.place_limit_order(tp_action, 1, take_profit)
+                tp_trade = await self.broker.place_limit_order(tp_action, self.config.contracts_per_trade, take_profit)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
                 
                 # Create actual position with FILL price and IB order IDs

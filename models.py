@@ -75,10 +75,10 @@ class StrategyConfig:
     rsi_oversold: int = 30
 
     # RSI entry thresholds
-    entry_rsi_bearish: float = 55.0         # CHANGED: was 60, lowered to catch more entries
-    entry_rsi_bullish: float = 45.0         # CHANGED: was 40, raised to catch more entries
-    entry_rsi_sideways_short: float = 70.0  # RESTORED: was 65 in current, back to old 70
-    entry_rsi_sideways_long: float = 30.0   # RESTORED: was 35 in current, back to old 30
+    entry_rsi_bearish: float = 55.0
+    entry_rsi_bullish: float = 45.0
+    entry_rsi_sideways_short: float = 70.0
+    entry_rsi_sideways_long: float = 30.0
 
     # MA settings
     short_ma_length: int = 20
@@ -91,39 +91,40 @@ class StrategyConfig:
     macd_signal: int = 9
 
     # Trend confirmation
-    trend_confirmation_bars: int = 3        # RESTORED: was 2 in current, back to old 3
+    trend_confirmation_bars: int = 3
 
-    # Risk management - points-based (used by current strategy.py)
+    # Risk management - points-based
     stop_loss_pts: float = 8.0
     take_profit_pts: float = 12.0
     trailing_activation_pts: float = 5.0
     trailing_distance_pts: float = 5.0
 
-    # Risk management - pct-based (used by entry order sizing, aligned to pts targets)
-    stop_loss_pct: float = 0.117          # ~8 pts at 6860
-    take_profit_pct: float = 0.175        # ~12 pts at 6860
+    # Risk management - pct-based (used by entry order sizing)
+    stop_loss_pct: float = 0.117
+    take_profit_pct: float = 0.175
     use_trailing_stop: bool = True
-    trailing_stop_pct: float = 0.073      # ~5 pts at 6860
+    trailing_stop_pct: float = 0.073
 
-    max_loss_per_day_pct: float = 2.0       # RESTORED: was 1.0, back to old 2.0
+    max_loss_per_day_pct: float = 2.0
 
     # Trend reversal exit
-    use_trend_reversal_exit: bool = False   # RESTORED: was True in current, back to old False
+    use_trend_reversal_exit: bool = False
     trend_cooldown_minutes: int = 5
 
     # Time-based exit
     time_based_exit: bool = True
-    max_holding_hours: int = 4              # Keep current: 4 hour max hold
+    max_holding_hours: int = 4
 
     # Position sizing
     use_risk_based_position: bool = False
     risk_per_trade_pct: float = 1.0
     max_leverage: float = 3.0
+    contracts_per_trade: int = 1         # Number of contracts per entry order
 
     # Trend-following entry (scalp_aggressive only)
     use_trend_follow_entry: bool = False
-    trend_follow_rsi_long: float = 45.0   # Enter long in strong_bullish if RSI < this
-    trend_follow_rsi_short: float = 55.0  # Enter short in strong_bearish if RSI > this
+    trend_follow_rsi_long: float = 45.0
+    trend_follow_rsi_short: float = 55.0
 
     # Account
     initial_equity: float = 100000.0
@@ -134,7 +135,7 @@ class StrategyConfig:
 # =============================================================================
 
 def get_scalp_config() -> StrategyConfig:
-    """Single position, faster entries, tight risk. Good for trending opens."""
+    """Single grid position, 2 contracts per trade, tight risk. Good for trending opens."""
     return StrategyConfig(
         max_positions=1,
         base_grid_pct=0.08,
@@ -146,13 +147,14 @@ def get_scalp_config() -> StrategyConfig:
         trailing_stop_pct=0.07,
         trailing_activation_pts=5.0,
         use_trailing_stop=True,
-        max_loss_per_day_pct=1.0,
+        max_loss_per_day_pct=2.0,
         trend_confirmation_bars=2,
         use_trend_reversal_exit=False,
         entry_rsi_bearish=55.0,
         entry_rsi_bullish=45.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
+        contracts_per_trade=2,
     )
 
 
@@ -175,6 +177,7 @@ def get_grid_config() -> StrategyConfig:
         entry_rsi_bullish=40.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
+        contracts_per_trade=1,
     )
 
 
@@ -186,7 +189,7 @@ def get_scalp_aggressive_config() -> StrategyConfig:
         use_volatility_grid=True,
         atr_multiplier=1.2,
         max_anchor_distance_grids=2,
-        lookback_for_anchor=10,           # Shorter lookback = more recent swing levels
+        lookback_for_anchor=10,
         stop_loss_pts=8.0,
         take_profit_pts=12.0,
         trailing_activation_pts=5.0,
@@ -206,6 +209,7 @@ def get_scalp_aggressive_config() -> StrategyConfig:
         trend_follow_rsi_long=45.0,
         trend_follow_rsi_short=55.0,
         max_holding_hours=4,
+        contracts_per_trade=1,
     )
 
 
