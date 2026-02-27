@@ -134,6 +134,8 @@ class StrategyConfig:
     use_trend_follow_entry: bool = False
     trend_follow_rsi_long: float = 45.0
     trend_follow_rsi_short: float = 55.0
+    trend_follow_allow_moderate: bool = False  # Allow MODERATE trend entries with extra gates
+    post_exit_cooldown_bars: int = 2            # Bars to wait before re-entering after a close
 
     # Account
     initial_equity: float = 100000.0
@@ -217,6 +219,7 @@ def get_scalp_aggressive_config() -> StrategyConfig:
         use_trend_follow_entry=True,
         trend_follow_rsi_long=45.0,
         trend_follow_rsi_short=55.0,
+        trend_follow_allow_moderate=True,
         max_holding_hours=4,
         contracts_per_trade=1,
     )

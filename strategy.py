@@ -49,6 +49,8 @@ class GridStrategy:
         self.equity = self.config.initial_equity
         self.daily_pnl: float = 0.0
         self.last_reset_day: Optional[int] = None
+        self.prev_rsi: float = 50.0
+        self.bars_since_exit: int = 999  # Starts high so first entry is always allowed
     
     # =========================================================================
     # TICK ROUNDING
@@ -250,8 +252,14 @@ class GridStrategy:
         total_orders = self.position_count + len(self.pending_orders)
         if total_orders >= self.config.max_positions:
             return
-        
+
         if not self.grid_levels:
+            return
+
+        # Post-exit cooldown — give the bot time to reassess after a close
+        if self.bars_since_exit < self.config.post_exit_cooldown_bars:
+            remaining = self.config.post_exit_cooldown_bars - self.bars_since_exit
+            print(f"  ⏸️ Cooldown: {remaining} bar(s) remaining after exit")
             return
         
         trend = self.confirmed_trend
@@ -320,17 +328,36 @@ class GridStrategy:
         # Only active in scalp_aggressive mode (use_trend_follow_entry=True)
         if self.config.use_trend_follow_entry and self.position_count == 0 and not self.pending_orders:
             macd = self.indicators.cache.get('macd', {}).get('macd', 0)
-            
-            if (trend == TrendState.STRONG_BULLISH
-                    and rsi < self.config.trend_follow_rsi_long
-                    and macd > 0):
-                print(f"  🚀 Trend-follow LONG | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+            rsi_rising = rsi > self.prev_rsi
+            rsi_falling = rsi < self.prev_rsi
+
+            strong_long = trend == TrendState.STRONG_BULLISH
+            strong_short = trend == TrendState.STRONG_BEARISH
+
+            # Option B: moderate trend allowed if price above/below anchor, RSI moving right direction, MACD confirms
+            moderate_long = (
+                self.config.trend_follow_allow_moderate
+                and trend == TrendState.MODERATE_BULLISH
+                and current_price > self.anchor_price
+                and rsi_rising
+                and macd > 0
+            )
+            moderate_short = (
+                self.config.trend_follow_allow_moderate
+                and trend == TrendState.MODERATE_BEARISH
+                and current_price < self.anchor_price
+                and rsi_falling
+                and macd < 0
+            )
+
+            if (strong_long or moderate_long) and rsi < self.config.trend_follow_rsi_long:
+                reason = "strong" if strong_long else "moderate+gates"
+                print(f"  🚀 Trend-follow LONG [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
                 await self._enter_long(current_price, rsi, trend)
-            
-            elif (trend == TrendState.STRONG_BEARISH
-                    and rsi > self.config.trend_follow_rsi_short
-                    and macd < 0):
-                print(f"  🚀 Trend-follow SHORT | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+
+            elif (strong_short or moderate_short) and rsi > self.config.trend_follow_rsi_short:
+                reason = "strong" if strong_short else "moderate+gates"
+                print(f"  🚀 Trend-follow SHORT [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
                 await self._enter_short(current_price, rsi, trend)
     
     async def _enter_long(self, level: float, rsi: float, trend: TrendState):
@@ -691,6 +718,7 @@ class GridStrategy:
             if position in self.positions:
                 self.positions.remove(position)
                 self.position_count = max(0, self.position_count - 1)
+                self.bars_since_exit = 0  # Start cooldown
     
     def _should_exit_on_trend_reversal(self, position: Position) -> bool:
         """Check if position should exit due to trend reversal."""
@@ -725,6 +753,7 @@ class GridStrategy:
         
         self.positions.remove(position)
         self.position_count -= 1
+        self.bars_since_exit = 0  # Start cooldown
         
         print(f"  ❌ CLOSE {position.side.upper()} @ {actual_exit:.2f} (trigger: {trigger_price:.2f}) | P&L: {pnl:+.2f} | {reason}")
         print(f"     Daily P&L: {self.daily_pnl:+.2f} | Equity: {self.equity:.2f}")
@@ -767,6 +796,12 @@ class GridStrategy:
         
         # Store previous confirmed trend
         self.previous_trend = self.confirmed_trend
+        
+        # Store previous RSI for momentum detection
+        self.prev_rsi = self.indicators.cache.get('rsi', 50)
+        
+        # Increment post-exit cooldown counter
+        self.bars_since_exit += 1
         
         # Determine current trend (raw)
         self.current_trend = self._determine_trend()
