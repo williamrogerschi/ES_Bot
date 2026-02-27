@@ -57,16 +57,6 @@ class IBKRBroker:
     # ==================== Historical Data ====================
     
     async def get_historical_bars(self, duration: str = "1 D", bar_size: str = "1 min") -> list:
-        """
-        Fetch historical bars to warm up indicators.
-        
-        Args:
-            duration: How far back to fetch (e.g., "1 D", "2 D", "1 W")
-            bar_size: Bar size (e.g., "1 min", "5 mins", "1 hour")
-        
-        Returns:
-            List of bar dicts with time, open, high, low, close, volume
-        """
         if not self.contract:
             raise RuntimeError("Contract not set. Run get_front_month_contract_async() first.")
         
@@ -181,16 +171,6 @@ class IBKRBroker:
     # ==================== Order Placement ====================
     
     async def place_market_order(self, action: str, quantity: int) -> Optional[Trade]:
-        """
-        Place a market order.
-        
-        Args:
-            action: 'BUY' or 'SELL'
-            quantity: Number of contracts
-        
-        Returns:
-            Trade object or None if failed
-        """
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -198,7 +178,7 @@ class IBKRBroker:
             action=action,
             orderType='MKT',
             totalQuantity=quantity,
-            tif='DAY',       # ← add
+            tif='DAY',
             transmit=True
         )
         
@@ -211,17 +191,6 @@ class IBKRBroker:
         return trade
     
     async def place_limit_order(self, action: str, quantity: int, limit_price: float) -> Optional[Trade]:
-        """
-        Place a limit order.
-        
-        Args:
-            action: 'BUY' or 'SELL'
-            quantity: Number of contracts
-            limit_price: Limit price
-        
-        Returns:
-            Trade object or None if failed
-        """
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -230,7 +199,7 @@ class IBKRBroker:
             orderType='LMT',
             totalQuantity=quantity,
             lmtPrice=limit_price,
-            tif='DAY',       # ← add
+            tif='DAY',
             transmit=True
         )
         
@@ -243,17 +212,6 @@ class IBKRBroker:
         return trade
     
     async def place_stop_order(self, action: str, quantity: int, stop_price: float) -> Optional[Trade]:
-        """
-        Place a stop order.
-        
-        Args:
-            action: 'BUY' or 'SELL'
-            quantity: Number of contracts
-            stop_price: Stop trigger price
-        
-        Returns:
-            Trade object or None if failed
-        """
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -273,6 +231,22 @@ class IBKRBroker:
         await asyncio.sleep(0.1)
         return trade
     
+    async def modify_stop_order(self, order_id: int, new_stop_price: float) -> bool:
+        """Modify an existing stop order to a new price."""
+        for trade in self.ib.trades():
+            if trade.order.orderId == order_id:
+                try:
+                    trade.order.auxPrice = new_stop_price
+                    self.ib.placeOrder(trade.contract, trade.order)
+                    print(f"  ✏️ Stop order {order_id} modified → {new_stop_price:.2f}")
+                    await asyncio.sleep(0.1)
+                    return True
+                except Exception as e:
+                    print(f"  ⚠️ Failed to modify order {order_id}: {e}")
+                    return False
+        print(f"  ⚠️ modify_stop_order: order {order_id} not found")
+        return False
+
     async def place_bracket_order(
         self, 
         action: str, 
@@ -281,19 +255,6 @@ class IBKRBroker:
         take_profit_price: float,
         stop_loss_price: float
     ) -> Optional[List[Trade]]:
-        """
-        Place a bracket order (entry + TP + SL).
-        
-        Args:
-            action: 'BUY' or 'SELL' for the entry
-            quantity: Number of contracts
-            entry_price: Limit price for entry
-            take_profit_price: Take profit limit price
-            stop_loss_price: Stop loss trigger price
-        
-        Returns:
-            List of Trade objects [entry, take_profit, stop_loss] or None
-        """
         if not self.contract:
             raise RuntimeError("Contract not set")
         

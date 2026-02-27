@@ -315,6 +315,23 @@ class GridStrategy:
                     if crossed_down:
                         await self._enter_long(level, rsi, trend)
                         break
+        
+        # TREND-FOLLOW ENTRY: RSI pullback in strong trend, no grid level required
+        # Only active in scalp_aggressive mode (use_trend_follow_entry=True)
+        if self.config.use_trend_follow_entry and self.position_count == 0 and not self.pending_orders:
+            macd = self.indicators.cache.get('macd', {}).get('macd', 0)
+            
+            if (trend == TrendState.STRONG_BULLISH
+                    and rsi < self.config.trend_follow_rsi_long
+                    and macd > 0):
+                print(f"  🚀 Trend-follow LONG | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+                await self._enter_long(current_price, rsi, trend)
+            
+            elif (trend == TrendState.STRONG_BEARISH
+                    and rsi > self.config.trend_follow_rsi_short
+                    and macd < 0):
+                print(f"  🚀 Trend-follow SHORT | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+                await self._enter_short(current_price, rsi, trend)
     
     async def _enter_long(self, level: float, rsi: float, trend: TrendState):
         """Submit a long entry order (position created only after fill)."""
@@ -638,25 +655,23 @@ class GridStrategy:
                 time_in_trade = (datetime.now(UTC) - position.entry_time).total_seconds() / 60
                 if time_in_trade >= self.config.trend_cooldown_minutes:
                     if self._should_exit_on_trend_reversal(position):
-                        # Cancel IB bracket orders and close at market
                         if position.stop_order_id:
                             await self.broker.cancel_order_by_id(position.stop_order_id)
                         if position.tp_order_id:
                             await self.broker.cancel_order_by_id(position.tp_order_id)
                         await self._close_position(position, current_price, "Trend Reversal")
-                        continue  # _close_position handles removal
+                        continue
             
             # === TIME-BASED EXIT ===
             if self.config.time_based_exit:
                 holding_time = datetime.now(UTC) - position.entry_time
                 if holding_time > timedelta(hours=self.config.max_holding_hours):
-                    # Cancel IB bracket orders and close at market
                     if position.stop_order_id:
                         await self.broker.cancel_order_by_id(position.stop_order_id)
                     if position.tp_order_id:
                         await self.broker.cancel_order_by_id(position.tp_order_id)
                     await self._close_position(position, current_price, "Time Exit")
-                    continue  # _close_position handles removal
+                    continue
         
         # Remove closed positions
         for position in positions_to_remove:
@@ -677,21 +692,16 @@ class GridStrategy:
         """Close a position and record P&L."""
         action = 'SELL' if position.side == 'long' else 'BUY'
         
-        # Place close order and get actual fill price
         trade = await self.broker.place_market_order(action, 1)
         
-        # Wait briefly for fill to register
         await asyncio.sleep(0.3)
         
-        # Get actual fill price from trade object
         if trade and trade.fills:
             actual_exit = trade.fills[-1].execution.price
         else:
-            # Fallback to trigger price if fill not available
             actual_exit = trigger_price
             print(f"  ⚠️ Fill price not available, using trigger: {trigger_price:.2f}")
         
-        # Calculate P&L with actual fill price
         if position.side == 'long':
             pnl = (actual_exit - position.entry_price) * position.size
         else:
@@ -769,11 +779,9 @@ class GridStrategy:
         if self.current_trend != self.confirmed_trend:
             trend_display += f" (raw: {self.current_trend.value})"
         
-        total_orders = self.position_count + len(self.pending_orders)
         print(f"  📈 Trend: {trend_display} | Grid: {grid_size:.3f}%")
         print(f"  📡 RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
         print(f"  ⚓ Anchor: {self.grid_anchor_price:.2f} | Filled: {self.position_count} | Pending: {len(self.pending_orders)}")
-
         
         # Display pending orders
         for order_id, pending in self.pending_orders.items():
@@ -789,7 +797,6 @@ class GridStrategy:
                 unrealized_pnl = (pos.entry_price - self.last_price) * pos.size
                 profit_pts = pos.entry_price - (pos.lowest_price or self.last_price)
             
-            # Show hard SL until trailing activates
             if self.config.use_trailing_stop and pos.trailing_activated:
                 active_stop = pos.trailing_stop
                 stop_label = "Trail"
@@ -797,10 +804,8 @@ class GridStrategy:
                 active_stop = pos.stop_loss
                 stop_label = "SL"
             
-            # Build status line
             status = f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+.2f}"
             
-            # Add trailing activation status
             if self.config.use_trailing_stop:
                 if pos.trailing_activated:
                     status += f" | 🔒 Trailing"
@@ -824,10 +829,9 @@ class GridStrategy:
         # ===== CHECK ENTRIES AGAIN WITH NEW GRID =====
         await self._check_entries(bar)
         
-        # Display grid levels relative to current price with next entry
+        # Display grid levels
         if self.grid_levels:
             above = [f"{l:.2f}" for l in self.grid_levels if l > self.last_price][:3]
             below = [f"{l:.2f}" for l in sorted(self.grid_levels, reverse=True) if l < self.last_price][:3]
-
             print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
             print(f"  💰 Daily P&L: {self.daily_pnl:+.2f}")

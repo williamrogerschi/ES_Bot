@@ -120,6 +120,11 @@ class StrategyConfig:
     risk_per_trade_pct: float = 1.0
     max_leverage: float = 3.0
 
+    # Trend-following entry (scalp_aggressive only)
+    use_trend_follow_entry: bool = False
+    trend_follow_rsi_long: float = 45.0   # Enter long in strong_bullish if RSI < this
+    trend_follow_rsi_short: float = 55.0  # Enter short in strong_bearish if RSI > this
+
     # Account
     initial_equity: float = 100000.0
 
@@ -173,8 +178,40 @@ def get_grid_config() -> StrategyConfig:
     )
 
 
+def get_scalp_aggressive_config() -> StrategyConfig:
+    """Scalp + trend-follow entries on RSI pullbacks. For strong trending sessions."""
+    return StrategyConfig(
+        max_positions=1,
+        base_grid_pct=0.08,
+        use_volatility_grid=True,
+        atr_multiplier=1.2,
+        max_anchor_distance_grids=2,
+        lookback_for_anchor=10,           # Shorter lookback = more recent swing levels
+        stop_loss_pts=8.0,
+        take_profit_pts=12.0,
+        trailing_activation_pts=5.0,
+        trailing_distance_pts=5.0,
+        stop_loss_pct=0.117,
+        take_profit_pct=0.175,
+        trailing_stop_pct=0.073,
+        use_trailing_stop=True,
+        max_loss_per_day_pct=2.0,
+        trend_confirmation_bars=3,
+        use_trend_reversal_exit=False,
+        entry_rsi_bearish=55.0,
+        entry_rsi_bullish=45.0,
+        entry_rsi_sideways_short=70.0,
+        entry_rsi_sideways_long=30.0,
+        use_trend_follow_entry=True,
+        trend_follow_rsi_long=45.0,
+        trend_follow_rsi_short=55.0,
+        max_holding_hours=4,
+    )
+
+
 # Preset registry
 CONFIG_PRESETS = {
     'scalp': get_scalp_config,
+    'scalp_aggressive': get_scalp_aggressive_config,
     'grid': get_grid_config,
 }
