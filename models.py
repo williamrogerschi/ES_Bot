@@ -121,6 +121,15 @@ class StrategyConfig:
     max_leverage: float = 3.0
     contracts_per_trade: int = 1         # Number of contracts per entry order
 
+    # Grid mode stop - placed below all grid levels, not per-position
+    grid_stop_buffer_pts: float = 6.0    # Buffer below lowest grid level for stop
+
+    # Grid mode stop placement
+    # In grid mode (max_positions > 1), stop goes below the last grid level
+    # so averaging can actually work before the stop fires
+    use_grid_stop: bool = False          # True in grid mode
+    grid_stop_buffer_pts: float = 6.0   # Buffer below/above last grid level
+
     # Trend-following entry (scalp_aggressive only)
     use_trend_follow_entry: bool = False
     trend_follow_rsi_long: float = 45.0
@@ -159,16 +168,14 @@ def get_scalp_config() -> StrategyConfig:
 
 
 def get_grid_config() -> StrategyConfig:
-    """Multiple positions, wider spacing, no trailing. Good for ranging markets."""
+    """Multiple positions, wider spacing, stop below all grid levels. Good for ranging markets."""
     return StrategyConfig(
         max_positions=3,
         base_grid_pct=0.12,
         use_volatility_grid=True,
         atr_multiplier=1.5,
         max_anchor_distance_grids=3,
-        stop_loss_pct=0.40,
-        take_profit_pct=0.25,
-        trailing_stop_pct=0.0,
+        take_profit_pts=12.0,
         use_trailing_stop=False,
         max_loss_per_day_pct=2.0,
         trend_confirmation_bars=3,
@@ -177,7 +184,9 @@ def get_grid_config() -> StrategyConfig:
         entry_rsi_bullish=40.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
-        contracts_per_trade=1,
+        contracts_per_trade=3,
+        use_grid_stop=True,
+        grid_stop_buffer_pts=6.0,
     )
 
 

@@ -220,6 +220,7 @@ class IBKRBroker:
             orderType='STP',
             totalQuantity=quantity,
             auxPrice=stop_price,
+            tif='GTC',
             transmit=True
         )
         

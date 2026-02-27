@@ -436,13 +436,26 @@ class GridStrategy:
             if trade.orderStatus.status == 'Filled' and trade.fills:
                 fill_price = trade.fills[-1].execution.price
                 
-                # Calculate stops based on FILL PRICE using POINTS (not percentage)
-                if pending.side == 'long':
-                    stop_loss = self._round_to_tick(fill_price - self.config.stop_loss_pts)
-                    take_profit = self._round_to_tick(fill_price + self.config.take_profit_pts)
+                # Calculate stops based on FILL PRICE
+                # Grid mode: stop goes beyond the last grid level so averaging can work
+                # Scalp mode: fixed pts from fill
+                if self.config.use_grid_stop and self.grid_levels:
+                    if pending.side == 'long':
+                        last_level = min(self.grid_levels)
+                        stop_loss = self._round_to_tick(last_level - self.config.grid_stop_buffer_pts)
+                        take_profit = self._round_to_tick(fill_price + self.config.take_profit_pts)
+                    else:
+                        last_level = max(self.grid_levels)
+                        stop_loss = self._round_to_tick(last_level + self.config.grid_stop_buffer_pts)
+                        take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
+                    print(f"     Grid stop: last level {last_level:.2f} + {self.config.grid_stop_buffer_pts}pt buffer → SL {stop_loss:.2f}")
                 else:
-                    stop_loss = self._round_to_tick(fill_price + self.config.stop_loss_pts)
-                    take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
+                    if pending.side == 'long':
+                        stop_loss = self._round_to_tick(fill_price - self.config.stop_loss_pts)
+                        take_profit = self._round_to_tick(fill_price + self.config.take_profit_pts)
+                    else:
+                        stop_loss = self._round_to_tick(fill_price + self.config.stop_loss_pts)
+                        take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
                 
                 # === NATIVE IB STOP ORDER ===
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
@@ -833,5 +846,9 @@ class GridStrategy:
         if self.grid_levels:
             above = [f"{l:.2f}" for l in self.grid_levels if l > self.last_price][:3]
             below = [f"{l:.2f}" for l in sorted(self.grid_levels, reverse=True) if l < self.last_price][:3]
-            print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
+            if self.confirmed_trend == TrendState.SIDEWAYS:
+                print(f"  🧮 Grid ↑: {above}")
+                print(f"  🧮 Grid ↓: {below}")
+            else:
+                print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
             print(f"  💰 Daily P&L: {self.daily_pnl:+.2f}")
