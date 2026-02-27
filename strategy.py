@@ -143,15 +143,19 @@ class GridStrategy:
         return base
     
     def _should_reset_grid_anchor(self) -> bool:
-        """Determine if grid anchor should be reset."""
-        # Reset if confirmed trend changed
         if self.confirmed_trend != self.previous_trend:
             return True
         
-        # Reset if no positions and anchor is stale (> 30 min)
         if self.position_count == 0 and self.grid_anchor_time:
             age = datetime.now(UTC) - self.grid_anchor_time
             if age > timedelta(minutes=30):
+                return True
+        
+        # Reset if price has moved too far from anchor (no positions only)
+        if self.grid_anchor_price and self.position_count == 0:
+            distance_pct = abs(self.last_price - self.grid_anchor_price) / self.last_price * 100
+            grid_size = self._calculate_grid_size()
+            if distance_pct > grid_size * self.config.max_anchor_distance_grids:
                 return True
         
         return False
@@ -801,7 +805,7 @@ class GridStrategy:
                 if pos.trailing_activated:
                     status += f" | 🔒 Trailing"
                 else:
-                    pts_to_activate = self.config.trailing_stop_activation_pts - profit_pts
+                    pts_to_activate = self.config.trailing_activation_pts - profit_pts
                     if pts_to_activate > 0:
                         status += f" | +{pts_to_activate:.1f} to trail"
             

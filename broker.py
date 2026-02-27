@@ -198,6 +198,7 @@ class IBKRBroker:
             action=action,
             orderType='MKT',
             totalQuantity=quantity,
+            tif='DAY',       # ← add
             transmit=True
         )
         
@@ -229,6 +230,7 @@ class IBKRBroker:
             orderType='LMT',
             totalQuantity=quantity,
             lmtPrice=limit_price,
+            tif='DAY',       # ← add
             transmit=True
         )
         
@@ -326,7 +328,21 @@ class IBKRBroker:
         except Exception as e:
             print(f"  ⚠️ Failed to cancel order: {e}")
             return False
-    
+        
+    async def cancel_order_by_id(self, order_id: int) -> bool:
+        """Cancel an order by its ID."""
+        for trade in self.ib.trades():
+            if trade.order.orderId == order_id:
+                try:
+                    self.ib.cancelOrder(trade.order)
+                    await asyncio.sleep(0.1)
+                    return True
+                except Exception as e:
+                    print(f"  ⚠️ Failed to cancel order {order_id}: {e}")
+                    return False
+        print(f"  ⚠️ Order {order_id} not found for cancellation")
+        return False
+
     async def cancel_all_orders(self):
         """Cancel all open orders."""
         if not self._open_orders:
