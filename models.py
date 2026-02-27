@@ -165,7 +165,7 @@ def get_scalp_config() -> StrategyConfig:
         entry_rsi_bullish=45.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
-        contracts_per_trade=2,
+        contracts_per_trade=10,
     )
 
 
@@ -221,7 +221,7 @@ def get_scalp_aggressive_config() -> StrategyConfig:
         trend_follow_rsi_short=55.0,
         trend_follow_allow_moderate=True,
         max_holding_hours=4,
-        contracts_per_trade=1,
+        contracts_per_trade=5,
     )
 
 
