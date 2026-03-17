@@ -1020,7 +1020,7 @@ class GridStrategy:
             if len(self.bars) >= 2:
                 prev = self.bars[-2]
                 print(f"  📈 Trend: {trend_display}")
-                print(f"  🗺️  Grid: {grid_size:.3f}% | 🔼 {prev['high']:.2f} 🔽 {prev['low']:.2f}")
+                print(f"  🗺️  Grid: {grid_size:.3f}% | 🔺 {prev['high']:.2f} 🔻 {prev['low']:.2f}")
         print(f"  📡 RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
         if self.config.use_grid_entry:
             print(f"  ⚓ Anchor: {self.grid_anchor_price:.2f} | Filled: {self.position_count} | Pending: {len(self.pending_orders)}")
@@ -1051,7 +1051,7 @@ class GridStrategy:
                 active_stop = pos.stop_loss
                 stop_label = "SL"
             
-            status = f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+,.2f}"
+            status = f"  📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+,.2f}"
             
             if self.config.use_trailing_stop:
                 if pos.trailing_activated:

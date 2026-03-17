@@ -7,7 +7,7 @@ from broker import IBKRBroker
 # =============================================================================
 # SELECT MODE: "scalp" | "scalp_robust" | "grid"
 # =============================================================================
-MODE = "scalp_robust"
+MODE = "scalp"
 # =============================================================================
 
 MODE_DESCRIPTIONS = {
@@ -22,7 +22,7 @@ MODE_DESCRIPTIONS = {
         ]
     },
     "scalp_robust": {
-        "label": "🛡️ MODE: SCALP ROBUST",
+        "label": "🛡️  MODE: SCALP ROBUST",
         "notes": [
             "• {contracts} contract(s) max",
             "• Scalp core logic + session filter + 5m trend alignment",

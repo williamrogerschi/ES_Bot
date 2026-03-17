@@ -178,7 +178,7 @@ def get_scalp_config() -> StrategyConfig:
         entry_rsi_bullish=45.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
-        contracts_per_trade=10,
+        contracts_per_trade=3,
     )
 
 
