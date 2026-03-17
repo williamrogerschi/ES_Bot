@@ -51,6 +51,12 @@ class GridStrategy:
         self.last_reset_day: Optional[int] = None
         self.prev_rsi: float = 50.0
         self.bars_since_exit: int = 999  # Starts high so first entry is always allowed
+
+        # 5-minute bar aggregation (scalp_robust only)
+        self.bars_5m: List[Dict] = []
+        self.indicators_5m = Indicators(self.config)
+        self.current_trend_5m: TrendState = TrendState.SIDEWAYS
+        self._5m_bar_buffer: List[Dict] = []  # accumulates 1-min bars until 5 collected
     
     # =========================================================================
     # TICK ROUNDING
@@ -110,7 +116,49 @@ class GridStrategy:
             return TrendState.MODERATE_BEARISH
         else:
             return TrendState.SIDEWAYS
-    
+
+    def _determine_trend_5m(self) -> TrendState:
+        """Same scoring logic as _determine_trend but uses 5-min indicators cache."""
+        if not self.indicators_5m.cache:
+            return TrendState.SIDEWAYS
+
+        ind = self.indicators_5m.cache
+
+        bullish_score = 0
+        bearish_score = 0
+
+        if ind['short_ma'] > ind['long_ma']:
+            bullish_score += 20
+        else:
+            bearish_score += 20
+
+        if ind['long_ma'] > ind['super_long_ma']:
+            bullish_score += 30
+        else:
+            bearish_score += 30
+
+        macd = ind['macd']
+        if macd['macd'] > macd['signal'] and macd['macd'] > 0:
+            bullish_score += 25
+        elif macd['macd'] < macd['signal'] and macd['macd'] < 0:
+            bearish_score += 25
+
+        if ind['momentum'] > 0:
+            bullish_score += 25
+        else:
+            bearish_score += 25
+
+        if bullish_score >= 70:
+            return TrendState.STRONG_BULLISH
+        elif bullish_score >= 40:
+            return TrendState.MODERATE_BULLISH
+        elif bearish_score >= 70:
+            return TrendState.STRONG_BEARISH
+        elif bearish_score >= 40:
+            return TrendState.MODERATE_BEARISH
+        else:
+            return TrendState.SIDEWAYS
+
     def _get_confirmed_trend(self) -> TrendState:
         """Only change trend after N consecutive bars agree (ES-specific)."""
         self.trend_history.append(self.current_trend)
@@ -241,9 +289,131 @@ class GridStrategy:
         # Cap by max leverage
         max_size = (self.equity * self.config.max_leverage) / entry_price
         return min(size, max_size)
-    
+
     # =========================================================================
-    # ENTRY LOGIC
+    # SCALP ENTRY LOGIC (scalp + scalp_aggressive modes)
+    # =========================================================================
+
+    async def _check_entries_scalp(self, bar: Dict):
+        """Check for entry signals - scalp/scalp_robust modes.
+        Same as _check_entries but replaces grid level crossover
+        with bar close breaking prev bar high/low.
+        All RSI logic, cooldown, trend conditions identical to original.
+        """
+        # Count both filled positions AND pending orders toward max
+        total_orders = self.position_count + len(self.pending_orders)
+        if total_orders >= self.config.max_positions:
+            return
+
+        # Post-exit cooldown — give the bot time to reassess after a close
+        if self.bars_since_exit < self.config.post_exit_cooldown_bars:
+            remaining = self.config.post_exit_cooldown_bars - self.bars_since_exit
+            print(f"  ⏸️ Cooldown: {remaining} bar(s) remaining after exit")
+            return
+
+        if len(self.bars) < 2:
+            return
+
+        # SESSION TIME FILTER (scalp_robust only)
+        if self.config.use_session_filter:
+            bar_ct = bar['time'].astimezone(CENTRAL)
+            session_start = bar_ct.replace(hour=self.config.session_start_hour, minute=self.config.session_start_minute, second=0, microsecond=0)
+            session_end = bar_ct.replace(hour=self.config.session_end_hour, minute=self.config.session_end_minute, second=0, microsecond=0)
+            if not (session_start <= bar_ct < session_end):
+                print(f"  🕐 Outside session ({bar_ct.strftime('%H:%M')} CT) — no entries")
+                return
+
+        # 5-MIN TREND FILTER (scalp_robust only)
+        if self.config.use_5m_filter:
+            def direction(t):
+                if t in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
+                    return 'bull'
+                elif t in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
+                    return 'bear'
+                return 'sideways'
+
+            trend_1m_dir = direction(self.confirmed_trend)
+            trend_5m_dir = direction(self.current_trend_5m)
+
+            if trend_5m_dir != 'sideways' and trend_1m_dir != trend_5m_dir:
+                print(f"  🚫 5m trend mismatch: 1m={self.confirmed_trend.value} vs 5m={self.current_trend_5m.value}")
+                return
+
+        # VOLUME FILTER (scalp_robust only)
+        if self.config.use_volume_filter and len(self.bars) >= self.config.volume_lookback:
+            recent_vols = [b['volume'] for b in self.bars[-self.config.volume_lookback:]]
+            avg_vol = sum(recent_vols) / len(recent_vols)
+            if avg_vol > 0 and bar['volume'] < self.config.volume_spike_multiplier * avg_vol:
+                threshold = self.config.volume_spike_multiplier * avg_vol
+                print(f"  🔇 Low volume ({bar['volume']:.0f} < threshold {threshold:.0f} | avg {avg_vol:.0f}) — skipping")
+                return
+
+        trend = self.confirmed_trend
+        rsi = self.indicators.cache.get('rsi', 50)
+
+        current_price = bar['close']
+        prev_bar = self.bars[-2]
+
+        # BEARISH: Look for shorts on break of prev bar low
+        if trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
+            if rsi > self.config.entry_rsi_bearish:
+                if current_price < prev_bar['low']:
+                    await self._enter_short(current_price, rsi, trend)
+
+        # BULLISH: Look for longs on break of prev bar high
+        elif trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
+            if rsi < self.config.entry_rsi_bullish:
+                if current_price > prev_bar['high']:
+                    await self._enter_long(current_price, rsi, trend)
+
+        # SIDEWAYS: Trade both directions with strict RSI
+        elif trend == TrendState.SIDEWAYS:
+            if rsi > self.config.entry_rsi_sideways_short:
+                if current_price < prev_bar['low']:
+                    await self._enter_short(current_price, rsi, trend)
+
+            elif rsi < self.config.entry_rsi_sideways_long:
+                if current_price > prev_bar['high']:
+                    await self._enter_long(current_price, rsi, trend)
+
+        # TREND-FOLLOW ENTRY: RSI pullback in strong trend, no grid level required
+        # Only active in scalp_aggressive mode (use_trend_follow_entry=True)
+        if self.config.use_trend_follow_entry and self.position_count == 0 and not self.pending_orders:
+            macd = self.indicators.cache.get('macd', {}).get('macd', 0)
+            rsi_rising = rsi > self.prev_rsi
+            rsi_falling = rsi < self.prev_rsi
+
+            strong_long = trend == TrendState.STRONG_BULLISH
+            strong_short = trend == TrendState.STRONG_BEARISH
+
+            # Option B: moderate trend allowed if price above/below anchor, RSI moving right direction, MACD confirms
+            moderate_long = (
+                self.config.trend_follow_allow_moderate
+                and trend == TrendState.MODERATE_BULLISH
+                and current_price > self.grid_anchor_price
+                and rsi_rising
+                and macd > 0
+            )
+            moderate_short = (
+                self.config.trend_follow_allow_moderate
+                and trend == TrendState.MODERATE_BEARISH
+                and current_price < self.grid_anchor_price
+                and rsi_falling
+                and macd < 0
+            )
+
+            if (strong_long or moderate_long) and rsi < self.config.trend_follow_rsi_long:
+                reason = "strong" if strong_long else "moderate+gates"
+                print(f"  🚀 Trend-follow LONG [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+                await self._enter_long(current_price, rsi, trend)
+
+            elif (strong_short or moderate_short) and rsi > self.config.trend_follow_rsi_short:
+                reason = "strong" if strong_short else "moderate+gates"
+                print(f"  🚀 Trend-follow SHORT [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+                await self._enter_short(current_price, rsi, trend)
+
+    # =========================================================================
+    # ENTRY LOGIC (grid mode)
     # =========================================================================
     
     async def _check_entries(self, bar: Dict):
@@ -338,14 +508,14 @@ class GridStrategy:
             moderate_long = (
                 self.config.trend_follow_allow_moderate
                 and trend == TrendState.MODERATE_BULLISH
-                and current_price > self.anchor_price
+                and current_price > self.grid_anchor_price
                 and rsi_rising
                 and macd > 0
             )
             moderate_short = (
                 self.config.trend_follow_allow_moderate
                 and trend == TrendState.MODERATE_BEARISH
-                and current_price < self.anchor_price
+                and current_price < self.grid_anchor_price
                 and rsi_falling
                 and macd < 0
             )
@@ -593,14 +763,14 @@ class GridStrategy:
                 else:
                     pnl_pts = position.entry_price - exit_price
                 
-                pnl_dollars = pnl_pts * 50  # ES = $50 per point
+                pnl_dollars = pnl_pts * 50 * self.config.contracts_per_trade
                 
                 self.daily_pnl += pnl_dollars
                 self.equity += pnl_dollars
                 
                 emoji = "✅" if pnl_pts >= 0 else "❌"
                 print(f"  {emoji} EXIT {position.side.upper()} @ {exit_price:.2f} | {exit_reason}")
-                print(f"     P&L: {pnl_pts:+.2f} pts (${pnl_dollars:+.2f}) | Daily: ${self.daily_pnl:+.2f}")
+                print(f"     P&L: {pnl_pts:+.2f} pts (${pnl_dollars:+,.2f}) | Daily: ${self.daily_pnl:+,.2f}")
                 
                 positions_to_remove.append(position)
                 continue
@@ -618,8 +788,8 @@ class GridStrategy:
                 if not position.trailing_activated and profit_pts >= self.config.trailing_activation_pts:
                     position.trailing_activated = True
                     
-                    # Calculate new trailing stop
-                    new_stop = self._round_to_tick(position.highest_price - self.config.trailing_distance_pts)
+                    # Lock stop at entry + trailing_distance_pts to guarantee minimum profit
+                    new_stop = self._round_to_tick(position.entry_price + self.config.trailing_distance_pts)
                     
                     # Only update if new stop is higher than current stop
                     if new_stop > position.stop_loss:
@@ -660,8 +830,8 @@ class GridStrategy:
                 if not position.trailing_activated and profit_pts >= self.config.trailing_activation_pts:
                     position.trailing_activated = True
                     
-                    # Calculate new trailing stop
-                    new_stop = self._round_to_tick(position.lowest_price + self.config.trailing_distance_pts)
+                    # Lock stop at entry - trailing_distance_pts to guarantee minimum profit
+                    new_stop = self._round_to_tick(position.entry_price - self.config.trailing_distance_pts)
                     
                     # Only update if new stop is lower than current stop
                     if new_stop < position.stop_loss:
@@ -744,9 +914,9 @@ class GridStrategy:
             print(f"  ⚠️ Fill price not available, using trigger: {trigger_price:.2f}")
         
         if position.side == 'long':
-            pnl = (actual_exit - position.entry_price) * position.size
+            pnl = (actual_exit - position.entry_price) * self.config.contracts_per_trade * 50
         else:
-            pnl = (position.entry_price - actual_exit) * position.size
+            pnl = (position.entry_price - actual_exit) * self.config.contracts_per_trade * 50
         
         self.daily_pnl += pnl
         self.equity += pnl
@@ -755,8 +925,8 @@ class GridStrategy:
         self.position_count -= 1
         self.bars_since_exit = 0  # Start cooldown
         
-        print(f"  ❌ CLOSE {position.side.upper()} @ {actual_exit:.2f} (trigger: {trigger_price:.2f}) | P&L: {pnl:+.2f} | {reason}")
-        print(f"     Daily P&L: {self.daily_pnl:+.2f} | Equity: {self.equity:.2f}")
+        print(f"  ❌ CLOSE {position.side.upper()} @ {actual_exit:.2f} (trigger: {trigger_price:.2f}) | P&L: ${pnl:+,.2f} | {reason}")
+        print(f"     Daily P&L: ${self.daily_pnl:+,.2f} | Equity: ${self.equity:,.2f}")
     
     def _check_daily_loss_limit(self) -> bool:
         """Check if daily loss limit has been hit."""
@@ -776,7 +946,7 @@ class GridStrategy:
         current_day = bar['time'].day
         if self.last_reset_day != current_day:
             if self.last_reset_day is not None:
-                print(f"\n📅 New trading day. Previous day P&L: {self.daily_pnl:+.2f}")
+                print(f"\n📅 New trading day. Previous day P&L: ${self.daily_pnl:+,.2f}")
             self.daily_pnl = 0.0
             self.last_reset_day = current_day
         
@@ -808,17 +978,34 @@ class GridStrategy:
         
         # Get confirmed trend (requires N consecutive bars)
         self._get_confirmed_trend()
-        
-        # ===== CHECK ENTRIES WITH OLD GRID FIRST =====
-        if self.grid_levels and self.grid_anchor_price:
-            await self._check_entries(bar)
-        
-        # ===== NOW reset grid if needed =====
-        if self._should_reset_grid_anchor() or self.grid_anchor_price is None:
-            self._set_grid_anchor()
-        
-        # Calculate grid levels from anchor
-        self.grid_levels = self._calculate_grid_levels()
+
+        # ===== 5-MIN BAR AGGREGATION (scalp_robust only) =====
+        if self.config.use_5m_filter:
+            self._5m_bar_buffer.append(bar)
+            if len(self._5m_bar_buffer) >= 5:
+                bar_5m = {
+                    'time': self._5m_bar_buffer[0]['time'],
+                    'open': self._5m_bar_buffer[0]['open'],
+                    'high': max(b['high'] for b in self._5m_bar_buffer),
+                    'low': min(b['low'] for b in self._5m_bar_buffer),
+                    'close': self._5m_bar_buffer[-1]['close'],
+                    'volume': sum(b['volume'] for b in self._5m_bar_buffer)
+                }
+                self.bars_5m.append(bar_5m)
+                self._5m_bar_buffer = []
+                if self.indicators_5m.calculate_all(self.bars_5m):
+                    self.current_trend_5m = self._determine_trend_5m()
+
+        # ===== GRID MODE: anchor + level crossover entries =====
+        if self.config.use_grid_entry:
+            if self.grid_levels and self.grid_anchor_price:
+                await self._check_entries(bar)
+
+            if self._should_reset_grid_anchor() or self.grid_anchor_price is None:
+                self._set_grid_anchor()
+
+            self.grid_levels = self._calculate_grid_levels()
+
         grid_size = self._calculate_grid_size()
         
         # Display status
@@ -827,9 +1014,21 @@ class GridStrategy:
         if self.current_trend != self.confirmed_trend:
             trend_display += f" (raw: {self.current_trend.value})"
         
-        print(f"  📈 Trend: {trend_display} | Grid: {grid_size:.3f}%")
+        if self.config.use_grid_entry:
+            print(f"  📈 Trend: {trend_display} | Grid: {grid_size:.3f}%")
+        else:
+            if len(self.bars) >= 2:
+                prev = self.bars[-2]
+                print(f"  📈 Trend: {trend_display}")
+                print(f"  🗺️  Grid: {grid_size:.3f}% | 🔼 {prev['high']:.2f} 🔽 {prev['low']:.2f}")
         print(f"  📡 RSI: {ind['rsi']:.1f} | MACD: {ind['macd']['macd']:.2f} | ATR: {ind['atr']:.2f}")
-        print(f"  ⚓ Anchor: {self.grid_anchor_price:.2f} | Filled: {self.position_count} | Pending: {len(self.pending_orders)}")
+        if self.config.use_grid_entry:
+            print(f"  ⚓ Anchor: {self.grid_anchor_price:.2f} | Filled: {self.position_count} | Pending: {len(self.pending_orders)}")
+        else:
+            if self.config.use_5m_filter:
+                print(f"  📊 Filled: {self.position_count} | Pending: {len(self.pending_orders)} | 5m: {self.current_trend_5m.value}")
+            else:
+                print(f"  📊 Filled: {self.position_count} | Pending: {len(self.pending_orders)}")
         
         # Display pending orders
         for order_id, pending in self.pending_orders.items():
@@ -839,10 +1038,10 @@ class GridStrategy:
         # Display open position details
         for pos in self.positions:
             if pos.side == 'long':
-                unrealized_pnl = (self.last_price - pos.entry_price) * pos.size
+                unrealized_pnl = (self.last_price - pos.entry_price) * self.config.contracts_per_trade * 50
                 profit_pts = (pos.highest_price or self.last_price) - pos.entry_price
             else:
-                unrealized_pnl = (pos.entry_price - self.last_price) * pos.size
+                unrealized_pnl = (pos.entry_price - self.last_price) * self.config.contracts_per_trade * 50
                 profit_pts = pos.entry_price - (pos.lowest_price or self.last_price)
             
             if self.config.use_trailing_stop and pos.trailing_activated:
@@ -852,7 +1051,7 @@ class GridStrategy:
                 active_stop = pos.stop_loss
                 stop_label = "SL"
             
-            status = f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+.2f}"
+            status = f"     📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+,.2f}"
             
             if self.config.use_trailing_stop:
                 if pos.trailing_activated:
@@ -874,11 +1073,17 @@ class GridStrategy:
         # Check exits
         await self._check_exits(bar)
         
-        # ===== CHECK ENTRIES AGAIN WITH NEW GRID =====
-        await self._check_entries(bar)
+        # ===== ENTRIES =====
+        if self.config.use_grid_entry:
+            # Grid mode: second entry check with updated grid
+            if self.grid_levels and self.grid_anchor_price:
+                await self._check_entries(bar)
+        else:
+            # Scalp/scalp_aggressive: simple price action entries
+            await self._check_entries_scalp(bar)
         
-        # Display grid levels
-        if self.grid_levels:
+        # Display grid levels (grid mode only)
+        if self.config.use_grid_entry and self.grid_levels:
             above = [f"{l:.2f}" for l in self.grid_levels if l > self.last_price][:3]
             below = [f"{l:.2f}" for l in sorted(self.grid_levels, reverse=True) if l < self.last_price][:3]
             if self.confirmed_trend == TrendState.SIDEWAYS:
@@ -886,4 +1091,5 @@ class GridStrategy:
                 print(f"  🧮 Grid ↓: {below}")
             else:
                 print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
-            print(f"  💰 Daily P&L: {self.daily_pnl:+.2f}")
+
+        print(f"  💰 Daily P&L: ${self.daily_pnl:+,.2f}")

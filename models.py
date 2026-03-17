@@ -58,6 +58,11 @@ class StrategyConfig:
     # Instrument settings
     tick_size: float = 0.25              # ES tick size
 
+    # Entry mode
+    # True  = grid anchor + level crossover entries (grid mode)
+    # False = simple trend + price action entries (scalp/scalp_aggressive)
+    use_grid_entry: bool = True
+
     # Grid settings
     base_grid_pct: float = 0.10
     max_positions: int = 1
@@ -122,20 +127,26 @@ class StrategyConfig:
     contracts_per_trade: int = 1         # Number of contracts per entry order
 
     # Grid mode stop - placed below all grid levels, not per-position
-    grid_stop_buffer_pts: float = 6.0    # Buffer below lowest grid level for stop
-
-    # Grid mode stop placement
-    # In grid mode (max_positions > 1), stop goes below the last grid level
-    # so averaging can actually work before the stop fires
-    use_grid_stop: bool = False          # True in grid mode
-    grid_stop_buffer_pts: float = 6.0   # Buffer below/above last grid level
+    use_grid_stop: bool = False
+    grid_stop_buffer_pts: float = 6.0
 
     # Trend-following entry (scalp_aggressive only)
     use_trend_follow_entry: bool = False
     trend_follow_rsi_long: float = 45.0
     trend_follow_rsi_short: float = 55.0
-    trend_follow_allow_moderate: bool = False  # Allow MODERATE trend entries with extra gates
-    post_exit_cooldown_bars: int = 2            # Bars to wait before re-entering after a close
+    trend_follow_allow_moderate: bool = False
+    post_exit_cooldown_bars: int = 2
+
+    # scalp_robust filters
+    use_session_filter: bool = False     # Only trade within session window
+    session_start_hour: int = 9          # CT
+    session_start_minute: int = 30
+    session_end_hour: int = 12           # CT
+    session_end_minute: int = 0
+    use_5m_filter: bool = False          # Only enter if 5m trend direction matches 1m
+    use_volume_filter: bool = False      # Only enter on volume spike
+    volume_spike_multiplier: float = 1.5 # Current bar volume must exceed N x 20-bar avg
+    volume_lookback: int = 20            # Bars to average for volume baseline
 
     # Account
     initial_equity: float = 100000.0
@@ -146,8 +157,9 @@ class StrategyConfig:
 # =============================================================================
 
 def get_scalp_config() -> StrategyConfig:
-    """Single grid position, 2 contracts per trade, tight risk. Good for trending opens."""
+    """Single position, tight risk, simple price action entries. Bread and butter."""
     return StrategyConfig(
+        use_grid_entry=False,
         max_positions=1,
         base_grid_pct=0.08,
         use_volatility_grid=True,
@@ -156,7 +168,8 @@ def get_scalp_config() -> StrategyConfig:
         stop_loss_pct=0.12,
         take_profit_pct=0.18,
         trailing_stop_pct=0.07,
-        trailing_activation_pts=5.0,
+        trailing_activation_pts=6.0,
+        trailing_distance_pts=5.0,
         use_trailing_stop=True,
         max_loss_per_day_pct=2.0,
         trend_confirmation_bars=2,
@@ -172,6 +185,7 @@ def get_scalp_config() -> StrategyConfig:
 def get_grid_config() -> StrategyConfig:
     """Multiple positions, wider spacing, stop below all grid levels. Good for ranging markets."""
     return StrategyConfig(
+        use_grid_entry=True,
         max_positions=3,
         base_grid_pct=0.12,
         use_volatility_grid=True,
@@ -192,42 +206,45 @@ def get_grid_config() -> StrategyConfig:
     )
 
 
-def get_scalp_aggressive_config() -> StrategyConfig:
-    """Scalp + trend-follow entries on RSI pullbacks. For strong trending sessions."""
+def get_scalp_robust_config() -> StrategyConfig:
+    """Scalp core logic + session filter (9:30-12:00 CT) + 5m trend alignment.
+    Identical entry/exit/risk to scalp, just stricter entry conditions for better edge."""
     return StrategyConfig(
+        use_grid_entry=False,
         max_positions=1,
         base_grid_pct=0.08,
         use_volatility_grid=True,
         atr_multiplier=1.2,
         max_anchor_distance_grids=2,
-        lookback_for_anchor=10,
-        stop_loss_pts=8.0,
-        take_profit_pts=12.0,
-        trailing_activation_pts=5.0,
+        stop_loss_pct=0.12,
+        take_profit_pct=0.18,
+        trailing_stop_pct=0.07,
+        trailing_activation_pts=6.0,
         trailing_distance_pts=5.0,
-        stop_loss_pct=0.117,
-        take_profit_pct=0.175,
-        trailing_stop_pct=0.073,
         use_trailing_stop=True,
         max_loss_per_day_pct=2.0,
-        trend_confirmation_bars=3,
+        trend_confirmation_bars=2,
         use_trend_reversal_exit=False,
         entry_rsi_bearish=55.0,
         entry_rsi_bullish=45.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
-        use_trend_follow_entry=True,
-        trend_follow_rsi_long=45.0,
-        trend_follow_rsi_short=55.0,
-        trend_follow_allow_moderate=True,
-        max_holding_hours=4,
-        contracts_per_trade=5,
+        contracts_per_trade=10,
+        use_session_filter=True,
+        session_start_hour=9,
+        session_start_minute=30,
+        session_end_hour=12,
+        session_end_minute=0,
+        use_5m_filter=True,
+        use_volume_filter=True,
+        volume_spike_multiplier=1.5,
+        volume_lookback=20,
     )
 
 
 # Preset registry
 CONFIG_PRESETS = {
     'scalp': get_scalp_config,
-    'scalp_aggressive': get_scalp_aggressive_config,
+    'scalp_robust': get_scalp_robust_config,
     'grid': get_grid_config,
 }

@@ -5,37 +5,38 @@ from models import CONFIG_PRESETS
 from broker import IBKRBroker
 
 # =============================================================================
-# SELECT MODE: "scalp" | "scalp_aggressive" | "grid"
+# SELECT MODE: "scalp" | "scalp_robust" | "grid"
 # =============================================================================
-MODE = "scalp_aggressive"
+MODE = "scalp_robust"
 # =============================================================================
 
 MODE_DESCRIPTIONS = {
     "scalp": {
         "label": "📈 MODE: SCALP",
         "notes": [
-            "• 1 contract max",
+            "• {contracts} contract(s) max",
             "• Grid entries only",
             "• Trailing stop enabled",
-            "• SL: ~8 pts | TP: ~12 pts | Trail: ~5 pts",
+            "• SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts",
             "• Best for: Normal sessions, choppy/ranging opens",
         ]
     },
-    "scalp_aggressive": {
-        "label": "🚀 MODE: SCALP AGGRESSIVE",
+    "scalp_robust": {
+        "label": "🛡️ MODE: SCALP ROBUST",
         "notes": [
-            "• 1 contract max",
-            "• Grid entries + trend-follow RSI pullback entries",
+            "• {contracts} contract(s) max",
+            "• Scalp core logic + session filter + 5m trend alignment",
             "• Trailing stop enabled",
-            "• SL: ~8 pts | TP: ~12 pts | Trail: ~5 pts",
-            "• Shorter anchor lookback (10 bars)",
-            "• Best for: Strong trending sessions",
+            "• SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts",
+            "• Session: 9:30–12:00 CT only",
+            "• 5m trend must align with 1m direction",
+            "• Best for: High-quality morning session trades",
         ]
     },
     "grid": {
         "label": "📊 MODE: GRID",
         "notes": [
-            "• 3 contracts max",
+            "• {contracts} contract(s) max",
             "• No trailing stop",
             "• SL: ~28 pts | TP: ~17 pts",
             "• Best for: Ranging markets, mean reversion",
@@ -55,7 +56,7 @@ async def main():
     print("\n" + "="*60)
     print(desc["label"])
     for note in desc["notes"]:
-        print(f"   {note}")
+        print(f"   {note.format(contracts=config.contracts_per_trade)}")
     print("="*60)
 
     try:
@@ -129,9 +130,10 @@ async def main():
 
         if 'strategy' in locals():
             print(f"\nFinal Summary ({MODE.upper()} mode):")
-            print(f"  Daily P&L: {strategy.daily_pnl:+.2f}")
+            print(f"  Daily P&L: ${strategy.daily_pnl:+,.2f}")
             print(f"  Open Positions: {strategy.position_count}")
-            print(f"  Equity: {strategy.equity:.2f}")
+            print(f"  Contracts per trade: {config.contracts_per_trade}")
+            print(f"  Equity: ${strategy.equity:,.2f}")
 
     except Exception as e:
         print(f"\nError: {e}")
