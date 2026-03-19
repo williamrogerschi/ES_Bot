@@ -178,7 +178,7 @@ def get_scalp_config() -> StrategyConfig:
         entry_rsi_bullish=45.0,
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
-        contracts_per_trade=3,
+        contracts_per_trade=10,
     )
 
 
@@ -207,7 +207,7 @@ def get_grid_config() -> StrategyConfig:
 
 
 def get_scalp_robust_config() -> StrategyConfig:
-    """Scalp core logic + session filter (9:30-12:00 CT) + 5m trend alignment.
+    """Scalp core logic + session filter (8:30-11:00 CT / 9:30-12:00 ET) + 5m trend alignment.
     Identical entry/exit/risk to scalp, just stricter entry conditions for better edge."""
     return StrategyConfig(
         use_grid_entry=False,
@@ -231,14 +231,14 @@ def get_scalp_robust_config() -> StrategyConfig:
         entry_rsi_sideways_long=30.0,
         contracts_per_trade=10,
         use_session_filter=True,
-        session_start_hour=9,
+        session_start_hour=8,
         session_start_minute=30,
-        session_end_hour=12,
+        session_end_hour=11,
         session_end_minute=0,
         use_5m_filter=True,
-        use_volume_filter=True,
-        volume_spike_multiplier=1.5,
-        volume_lookback=20,
+        use_volume_filter=False,
+        volume_spike_multiplier=1.2,
+        volume_lookback=50,
     )
 
 
