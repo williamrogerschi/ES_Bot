@@ -48,8 +48,16 @@ class IBKRBroker:
         if not details:
             raise ValueError(f"No contract found for {self.symbol}")
         
-        details.sort(key=lambda d: d.contract.lastTradeDateOrContractMonth)
-        self.contract = details[0].contract
+        today = datetime.now(UTC).strftime('%Y%m%d')
+        
+        # Filter out expired contracts
+        active = [d for d in details if d.contract.lastTradeDateOrContractMonth > today]
+        
+        if not active:
+            raise ValueError(f"No active contracts found for {self.symbol}")
+        
+        active.sort(key=lambda d: d.contract.lastTradeDateOrContractMonth)
+        self.contract = active[0].contract
         
         await self.ib.qualifyContractsAsync(self.contract)
         print(f"✓ Front-month contract: {self.contract.localSymbol} expiry={self.contract.lastTradeDateOrContractMonth}")
