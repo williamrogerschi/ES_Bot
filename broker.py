@@ -50,7 +50,7 @@ class IBKRBroker:
         
         today = datetime.now(UTC).strftime('%Y%m%d')
         
-        # Filter out expired contracts
+        # Filter out expired contracts (> not >= so rollover day uses new contract)
         active = [d for d in details if d.contract.lastTradeDateOrContractMonth > today]
         
         if not active:
@@ -198,7 +198,13 @@ class IBKRBroker:
         await asyncio.sleep(0.1)
         return trade
     
-    async def place_limit_order(self, action: str, quantity: int, limit_price: float) -> Optional[Trade]:
+    async def place_limit_order(
+        self,
+        action: str,
+        quantity: int,
+        limit_price: float,
+        oca_group: Optional[str] = None
+    ) -> Optional[Trade]:
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -210,16 +216,28 @@ class IBKRBroker:
             tif='DAY',
             transmit=True
         )
-        
+
+        # OCA group: when one leg fills, IBKR cancels the other server-side
+        if oca_group:
+            order.ocaGroup = oca_group
+            order.ocaType = 1  # Cancel all remaining orders with block
+
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
         
-        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId})")
+        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId})"
+              + (f" [OCA: {oca_group}]" if oca_group else ""))
         
         await asyncio.sleep(0.1)
         return trade
     
-    async def place_stop_order(self, action: str, quantity: int, stop_price: float) -> Optional[Trade]:
+    async def place_stop_order(
+        self,
+        action: str,
+        quantity: int,
+        stop_price: float,
+        oca_group: Optional[str] = None
+    ) -> Optional[Trade]:
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -231,11 +249,17 @@ class IBKRBroker:
             tif='GTC',
             transmit=True
         )
-        
+
+        # OCA group: when one leg fills, IBKR cancels the other server-side
+        if oca_group:
+            order.ocaGroup = oca_group
+            order.ocaType = 1  # Cancel all remaining orders with block
+
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
         
-        print(f"  📤 Stop {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId})")
+        print(f"  📤 Stop {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId})"
+              + (f" [OCA: {oca_group}]" if oca_group else ""))
         
         await asyncio.sleep(0.1)
         return trade

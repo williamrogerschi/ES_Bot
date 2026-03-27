@@ -654,14 +654,17 @@ class GridStrategy:
                         stop_loss = self._round_to_tick(fill_price + self.config.stop_loss_pts)
                         take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
                 
+                # OCA group ensures IBKR cancels the other order server-side when one fills
+                oca_group = f"bracket_{order_id}"
+
                 # === NATIVE IB STOP ORDER ===
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
-                stop_trade = await self.broker.place_stop_order(stop_action, self.config.contracts_per_trade, stop_loss)
+                stop_trade = await self.broker.place_stop_order(stop_action, self.config.contracts_per_trade, stop_loss, oca_group=oca_group)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 
                 # === NATIVE IB TAKE PROFIT ORDER ===
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
-                tp_trade = await self.broker.place_limit_order(tp_action, self.config.contracts_per_trade, take_profit)
+                tp_trade = await self.broker.place_limit_order(tp_action, self.config.contracts_per_trade, take_profit, oca_group=oca_group)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
                 
                 # Create actual position with FILL price and IB order IDs
@@ -687,7 +690,7 @@ class GridStrategy:
                 del self.pending_orders[order_id]
                 
                 print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id})")
-                print(f"     📊 Bracket placed: SL #{stop_order_id} @ {stop_loss:.2f} | TP #{tp_order_id} @ {take_profit:.2f}")
+                print(f"     📊 Bracket placed: SL #{stop_order_id} @ {stop_loss:.2f} | TP #{tp_order_id} @ {take_profit:.2f} [OCA: {oca_group}]")
                 print(f"     Trail activates @ +{self.config.trailing_activation_pts:.1f} pts")
             
             # Check if cancelled/expired
@@ -753,7 +756,8 @@ class GridStrategy:
             
             # === PROCESS EXIT IF FILLED ===
             if exit_price:
-                # Cancel the other bracket order
+                # Cancel the other bracket order (OCA handles this server-side,
+                # but we still attempt cancel as a fallback)
                 if order_to_cancel:
                     await self.broker.cancel_order_by_id(order_to_cancel)
                 
