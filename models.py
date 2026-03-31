@@ -171,7 +171,7 @@ def get_scalp_config() -> StrategyConfig:
         trailing_activation_pts=6.0,
         trailing_distance_pts=5.0,
         use_trailing_stop=True,
-        max_loss_per_day_pct=2.0,
+        max_loss_per_day_pct=100.0,
         trend_confirmation_bars=2,
         use_trend_reversal_exit=False,
         entry_rsi_bearish=55.0,
