@@ -790,7 +790,6 @@ class GridStrategy:
                 
                 # Check if trailing should activate
                 if not position.trailing_activated and profit_pts >= self.config.trailing_activation_pts:
-                    position.trailing_activated = True
                     
                     # Lock stop at entry + trailing_distance_pts to guarantee minimum profit
                     new_stop = self._round_to_tick(position.entry_price + self.config.trailing_distance_pts)
@@ -798,14 +797,19 @@ class GridStrategy:
                     # Only update if new stop is higher than current stop
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
-                        position.stop_loss = new_stop
-                        position.trailing_stop = new_stop
-                        
-                        # === MODIFY IB STOP ORDER ===
+
+                        # === MODIFY IB STOP ORDER — must confirm before marking trail active ===
+                        confirmed = True
                         if position.stop_order_id:
-                            await self.broker.modify_stop_order(position.stop_order_id, new_stop)
-                        
-                        print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
+                            confirmed = await self.broker.modify_stop_order(position.stop_order_id, new_stop)
+
+                        if confirmed:
+                            position.trailing_activated = True
+                            position.stop_loss = new_stop
+                            position.trailing_stop = new_stop
+                            print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
+                        else:
+                            print(f"  ⚠️ Trail activation failed — IBKR did not confirm stop move. Will retry next bar.")
                 
                 # If trailing already active, update stop on new highs
                 elif position.trailing_activated:
@@ -832,7 +836,6 @@ class GridStrategy:
                 
                 # Check if trailing should activate
                 if not position.trailing_activated and profit_pts >= self.config.trailing_activation_pts:
-                    position.trailing_activated = True
                     
                     # Lock stop at entry - trailing_distance_pts to guarantee minimum profit
                     new_stop = self._round_to_tick(position.entry_price - self.config.trailing_distance_pts)
@@ -840,14 +843,19 @@ class GridStrategy:
                     # Only update if new stop is lower than current stop
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
-                        position.stop_loss = new_stop
-                        position.trailing_stop = new_stop
-                        
-                        # === MODIFY IB STOP ORDER ===
+
+                        # === MODIFY IB STOP ORDER — must confirm before marking trail active ===
+                        confirmed = True
                         if position.stop_order_id:
-                            await self.broker.modify_stop_order(position.stop_order_id, new_stop)
-                        
-                        print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
+                            confirmed = await self.broker.modify_stop_order(position.stop_order_id, new_stop)
+
+                        if confirmed:
+                            position.trailing_activated = True
+                            position.stop_loss = new_stop
+                            position.trailing_stop = new_stop
+                            print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
+                        else:
+                            print(f"  ⚠️ Trail activation failed — IBKR did not confirm stop move. Will retry next bar.")
                 
                 # If trailing already active, update stop on new lows
                 elif position.trailing_activated:

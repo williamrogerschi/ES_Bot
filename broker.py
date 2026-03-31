@@ -265,15 +265,28 @@ class IBKRBroker:
         return trade
     
     async def modify_stop_order(self, order_id: int, new_stop_price: float) -> bool:
-        """Modify an existing stop order to a new price."""
+        """Modify an existing stop order to a new price.
+        Waits for IBKR to confirm the modification is live before returning.
+        This prevents the gap where the old stop is cancelled but the new one
+        isn't active yet, causing price to pass through with no fill.
+        """
         for trade in self.ib.trades():
             if trade.order.orderId == order_id:
                 try:
                     trade.order.auxPrice = new_stop_price
                     self.ib.placeOrder(trade.contract, trade.order)
-                    print(f"  ✏️ Stop order {order_id} modified → {new_stop_price:.2f}")
-                    await asyncio.sleep(0.1)
-                    return True
+
+                    # Wait for IBKR to confirm the modification is live
+                    for _ in range(20):
+                        await asyncio.sleep(0.25)
+                        status = trade.orderStatus.status
+                        if status in ('Submitted', 'PreSubmitted'):
+                            print(f"  ✏️ Stop order {order_id} modified → {new_stop_price:.2f} [confirmed]")
+                            return True
+
+                    # If we reach here the confirmation never came — log a warning
+                    print(f"  ⚠️ Stop order {order_id} modification sent but not confirmed — stop may be delayed")
+                    return False
                 except Exception as e:
                     print(f"  ⚠️ Failed to modify order {order_id}: {e}")
                     return False
