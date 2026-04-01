@@ -32,7 +32,6 @@ class IBKRBroker:
         await self.ib.connectAsync(host, port, clientId=client_id)
         print(f"✓ Connected to IBKR (paper) - clientId={client_id}")
         
-        # Set up order event handlers
         self.ib.orderStatusEvent += self._on_order_status
         self.ib.execDetailsEvent += self._on_exec_details
 
@@ -105,7 +104,6 @@ class IBKRBroker:
     # ==================== Bar Streaming ====================
     
     def _on_rt_bar(self, bars, has_new_bar: bool):
-        """RealTimeBarList updateEvent callback"""
         if not bars:
             return
         
@@ -160,7 +158,6 @@ class IBKRBroker:
     # ==================== Order Event Handlers ====================
     
     def _on_order_status(self, trade: Trade):
-        """Called when order status changes."""
         order_id = trade.order.orderId
         status = trade.orderStatus.status
         
@@ -173,7 +170,6 @@ class IBKRBroker:
                 self._filled_orders[order_id] = trade
     
     def _on_exec_details(self, trade: Trade, fill):
-        """Called when an order is filled."""
         print(f"  ✅ Fill: {fill.execution.side} {fill.execution.shares} @ {fill.execution.price}")
 
     # ==================== Order Placement ====================
@@ -198,13 +194,7 @@ class IBKRBroker:
         await asyncio.sleep(0.1)
         return trade
     
-    async def place_limit_order(
-        self,
-        action: str,
-        quantity: int,
-        limit_price: float,
-        oca_group: Optional[str] = None
-    ) -> Optional[Trade]:
+    async def place_limit_order(self, action: str, quantity: int, limit_price: float) -> Optional[Trade]:
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -217,27 +207,15 @@ class IBKRBroker:
             transmit=True
         )
 
-        # OCA group: when one leg fills, IBKR cancels the other server-side
-        if oca_group:
-            order.ocaGroup = oca_group
-            order.ocaType = 1  # Cancel all remaining orders with block
-
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
         
-        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId})"
-              + (f" [OCA: {oca_group}]" if oca_group else ""))
+        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId})")
         
         await asyncio.sleep(0.1)
         return trade
     
-    async def place_stop_order(
-        self,
-        action: str,
-        quantity: int,
-        stop_price: float,
-        oca_group: Optional[str] = None
-    ) -> Optional[Trade]:
+    async def place_stop_order(self, action: str, quantity: int, stop_price: float) -> Optional[Trade]:
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -250,16 +228,10 @@ class IBKRBroker:
             transmit=True
         )
 
-        # OCA group: when one leg fills, IBKR cancels the other server-side
-        if oca_group:
-            order.ocaGroup = oca_group
-            order.ocaType = 1  # Cancel all remaining orders with block
-
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
         
-        print(f"  📤 Stop {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId})"
-              + (f" [OCA: {oca_group}]" if oca_group else ""))
+        print(f"  📤 Stop {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId})")
         
         await asyncio.sleep(0.1)
         return trade
@@ -267,8 +239,6 @@ class IBKRBroker:
     async def modify_stop_order(self, order_id: int, new_stop_price: float) -> bool:
         """Modify an existing stop order to a new price.
         Waits for IBKR to confirm the modification is live before returning.
-        This prevents the gap where the old stop is cancelled but the new one
-        isn't active yet, causing price to pass through with no fill.
         """
         for trade in self.ib.trades():
             if trade.order.orderId == order_id:
@@ -284,7 +254,6 @@ class IBKRBroker:
                             print(f"  ✏️ Stop order {order_id} modified → {new_stop_price:.2f} [confirmed]")
                             return True
 
-                    # If we reach here the confirmation never came — log a warning
                     print(f"  ⚠️ Stop order {order_id} modification sent but not confirmed — stop may be delayed")
                     return False
                 except Exception as e:
@@ -293,14 +262,8 @@ class IBKRBroker:
         print(f"  ⚠️ modify_stop_order: order {order_id} not found")
         return False
 
-    async def place_bracket_order(
-        self, 
-        action: str, 
-        quantity: int, 
-        entry_price: float,
-        take_profit_price: float,
-        stop_loss_price: float
-    ) -> Optional[List[Trade]]:
+    async def place_bracket_order(self, action: str, quantity: int, entry_price: float,
+                                   take_profit_price: float, stop_loss_price: float) -> Optional[List[Trade]]:
         if not self.contract:
             raise RuntimeError("Contract not set")
         
@@ -326,7 +289,6 @@ class IBKRBroker:
     # ==================== Order Management ====================
     
     async def cancel_order(self, trade: Trade) -> bool:
-        """Cancel a specific order."""
         try:
             self.ib.cancelOrder(trade.order)
             print(f"  ❌ Cancel request sent for order {trade.order.orderId}")
@@ -337,7 +299,6 @@ class IBKRBroker:
             return False
         
     async def cancel_order_by_id(self, order_id: int) -> bool:
-        """Cancel an order by its ID."""
         for trade in self.ib.trades():
             if trade.order.orderId == order_id:
                 try:
@@ -351,7 +312,6 @@ class IBKRBroker:
         return False
 
     async def cancel_all_orders(self):
-        """Cancel all open orders."""
         if not self._open_orders:
             return
         
@@ -360,7 +320,6 @@ class IBKRBroker:
             await self.cancel_order(trade)
     
     async def close_all_positions(self) -> Optional[Trade]:
-        """Close all positions with a market order."""
         positions = self.ib.positions()
         
         for pos in positions:
@@ -376,7 +335,6 @@ class IBKRBroker:
     # ==================== Account Info ====================
     
     def get_position(self) -> int:
-        """Get current position size for this symbol."""
         positions = self.ib.positions()
         for pos in positions:
             if pos.contract.symbol == self.symbol:
@@ -384,7 +342,6 @@ class IBKRBroker:
         return 0
     
     def get_account_value(self) -> float:
-        """Get current account net liquidation value."""
         account_values = self.ib.accountValues()
         for av in account_values:
             if av.tag == 'NetLiquidation' and av.currency == 'USD':
@@ -392,7 +349,6 @@ class IBKRBroker:
         return 0.0
     
     def get_buying_power(self) -> float:
-        """Get available buying power."""
         account_values = self.ib.accountValues()
         for av in account_values:
             if av.tag == 'BuyingPower' and av.currency == 'USD':
@@ -400,7 +356,6 @@ class IBKRBroker:
         return 0.0
     
     async def get_current_price(self) -> Optional[float]:
-        """Get current market price for the contract."""
         if not self.contract:
             return None
         
