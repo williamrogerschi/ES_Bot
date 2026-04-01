@@ -1,5 +1,7 @@
 # main.py
 import asyncio
+import logging
+from datetime import datetime
 from strategy import GridStrategy
 from models import CONFIG_PRESETS
 from broker import IBKRBroker
@@ -45,7 +47,38 @@ MODE_DESCRIPTIONS = {
 }
 
 
+def setup_logging():
+    """Set up logging to both console and a timestamped log file."""
+    log_filename = f"es_bot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+    fmt = logging.Formatter(
+        '%(asctime)s | %(levelname)-8s | %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # File handler
+    fh = logging.FileHandler(log_filename, mode='w', encoding='utf-8')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(fmt)
+
+    # Console handler
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(fmt)
+
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)
+    root.handlers = []
+    root.addHandler(fh)
+    root.addHandler(ch)
+
+    print(f"📝 Logging to: {log_filename}")
+    return log_filename
+
+
 async def main():
+    log_file = setup_logging()
+
     if MODE not in CONFIG_PRESETS:
         raise ValueError(f"Unknown MODE: '{MODE}'. Valid options: {list(CONFIG_PRESETS.keys())}")
 
@@ -60,14 +93,11 @@ async def main():
     print("="*60)
 
     try:
-        # ===== CONNECT TO IBKR =====
         await broker.connect_async(host="127.0.0.1", port=7497, client_id=10)
         await broker.get_front_month_contract_async()
 
-        # Initialize strategy
         strategy = GridStrategy(broker=broker, config=config)
 
-        # ===== WARM UP WITH HISTORICAL DATA =====
         print("\n" + "="*60)
         print("Loading historical data for indicator warm-up...")
         print("="*60)
@@ -104,7 +134,6 @@ async def main():
         else:
             print("⚠️ No historical data loaded. Strategy will warm up with live bars.")
 
-        # ===== DISPLAY ACCOUNT INFO =====
         print("\n" + "-"*60)
         account_value = broker.get_account_value()
         buying_power = broker.get_buying_power()
@@ -114,7 +143,6 @@ async def main():
         print(f"Current Position: {current_position} contracts")
         print("-"*60)
 
-        # ===== START LIVE STREAMING =====
         print("\n" + "="*60)
         print("Starting live 1-minute bar stream...")
         print(f"Strategy is now ACTIVE ({MODE.upper()} mode)")
@@ -134,6 +162,7 @@ async def main():
             print(f"  Open Positions: {strategy.position_count}")
             print(f"  Contracts per trade: {config.contracts_per_trade}")
             print(f"  Equity: ${strategy.equity:,.2f}")
+            print(f"\n  Log saved to: {log_file}")
 
     except Exception as e:
         print(f"\nError: {e}")
