@@ -1,6 +1,7 @@
 # main.py
 import asyncio
 import logging
+import sys
 from datetime import datetime
 from strategy import GridStrategy
 from models import CONFIG_PRESETS
@@ -30,7 +31,7 @@ MODE_DESCRIPTIONS = {
             "• Scalp core logic + session filter + 5m trend alignment",
             "• Trailing stop enabled",
             "• SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts",
-            "• Session: 9:30–12:00 CT only",
+            "• Session: 9:30-12:00 CT only",
             "• 5m trend must align with 1m direction",
             "• Best for: High-quality morning session trades",
         ]
@@ -47,8 +48,22 @@ MODE_DESCRIPTIONS = {
 }
 
 
+class DualWriter:
+    """Writes print() output to both console and log file."""
+    def __init__(self, console, file):
+        self.console = console
+        self.file = file
+
+    def write(self, text):
+        self.console.write(text)
+        self.file.write(text)
+
+    def flush(self):
+        self.console.flush()
+        self.file.flush()
+
+
 def setup_logging():
-    """Set up logging to both console and a timestamped log file."""
     log_filename = f"es_bot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
     fmt = logging.Formatter(
@@ -56,14 +71,14 @@ def setup_logging():
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    # File handler
+    # File handler - INFO and above only (no raw socket noise)
     fh = logging.FileHandler(log_filename, mode='w', encoding='utf-8')
-    fh.setLevel(logging.DEBUG)
+    fh.setLevel(logging.INFO)
     fh.setFormatter(fmt)
 
-    # Console handler
+    # Console handler - WARNING and above (clean terminal)
     ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    ch.setLevel(logging.WARNING)
     ch.setFormatter(fmt)
 
     root = logging.getLogger()
@@ -72,7 +87,14 @@ def setup_logging():
     root.addHandler(fh)
     root.addHandler(ch)
 
-    print(f"📝 Logging to: {log_filename}")
+    # Suppress ib_insync raw socket debug in both handlers
+    logging.getLogger('ib_insync').setLevel(logging.WARNING)
+
+    # Redirect print() to also write to log file
+    log_file_handle = open(log_filename, 'a', encoding='utf-8')
+    sys.stdout = DualWriter(sys.stdout, log_file_handle)
+
+    print(f"Logging to: {log_filename}")
     return log_filename
 
 
@@ -121,7 +143,7 @@ async def main():
                 strategy.grid_levels = strategy._calculate_grid_levels()
 
                 ind = strategy.indicators.cache
-                print(f"\n✓ Indicators ready!")
+                print(f"\nIndicators ready!")
                 print(f"  Bars loaded: {len(strategy.bars)}")
                 print(f"  Last price: {strategy.last_price:.2f}")
                 print(f"  Trend: {strategy.current_trend.value}")
@@ -130,9 +152,9 @@ async def main():
                 print(f"  MACD: {ind['macd']['macd']:.2f} / Signal: {ind['macd']['signal']:.2f}")
                 print(f"  MA: {ind['short_ma']:.2f} / {ind['long_ma']:.2f} / {ind['super_long_ma']:.2f}")
             else:
-                print(f"⚠️ Still need more bars. Have {len(strategy.bars)}, need ~{config.super_long_ma_length}")
+                print(f"Still need more bars. Have {len(strategy.bars)}, need ~{config.super_long_ma_length}")
         else:
-            print("⚠️ No historical data loaded. Strategy will warm up with live bars.")
+            print("No historical data loaded. Strategy will warm up with live bars.")
 
         print("\n" + "-"*60)
         account_value = broker.get_account_value()
