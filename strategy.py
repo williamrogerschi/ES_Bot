@@ -213,6 +213,15 @@ class GridStrategy:
         max_size = (self.equity * self.config.max_leverage) / entry_price
         return min(size, max_size)
 
+    def _get_contracts(self) -> int:
+        """Returns contract size based on current ATR.
+        Drops to reduced size when ATR exceeds high volatility threshold.
+        """
+        atr = self.indicators.cache.get('atr', 0)
+        if atr >= self.config.atr_high_volatility_threshold:
+            return self.config.contracts_per_trade_high_vol
+        return self.config.contracts_per_trade
+
     async def _check_entries_scalp(self, bar: Dict):
         total_orders = self.position_count + len(self.pending_orders)
         if total_orders >= self.config.max_positions:
@@ -361,12 +370,15 @@ class GridStrategy:
         stop_loss = self._round_to_tick(level * (1 - self.config.stop_loss_pct / 100))
         take_profit = self._round_to_tick(level * (1 + self.config.take_profit_pct / 100))
         trailing_stop = self._round_to_tick(level * (1 - self.config.trailing_stop_pct / 100)) if self.config.use_trailing_stop else None
-        trade = await self.broker.place_limit_order('BUY', self.config.contracts_per_trade, level)
+        contracts = self._get_contracts()
+        trade = await self.broker.place_limit_order('BUY', contracts, level)
         order_id = trade.order.orderId
         pending = PendingOrder(order_id=order_id, side='long', limit_price=level, size=size, stop_loss=stop_loss, take_profit=take_profit, trailing_stop=trailing_stop, submit_time=datetime.now(UTC), grid_level=level)
         self.pending_orders[order_id] = pending
         reason = f"Grid Long ({trend.value}, RSI: {rsi:.1f})"
-        print(f"  ⬆️ LONG ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
+        atr = self.indicators.cache.get('atr', 0)
+        vol_note = f" [HIGH VOL ATR:{atr:.2f}→{contracts}cts]" if contracts < self.config.contracts_per_trade else f" [{contracts}cts]"
+        print(f"  ⬆️ LONG ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}{vol_note}")
         print(f"     Reason: {reason}")
         print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
     
@@ -376,12 +388,15 @@ class GridStrategy:
         stop_loss = self._round_to_tick(level * (1 + self.config.stop_loss_pct / 100))
         take_profit = self._round_to_tick(level * (1 - self.config.take_profit_pct / 100))
         trailing_stop = self._round_to_tick(level * (1 + self.config.trailing_stop_pct / 100)) if self.config.use_trailing_stop else None
-        trade = await self.broker.place_limit_order('SELL', self.config.contracts_per_trade, level)
+        contracts = self._get_contracts()
+        trade = await self.broker.place_limit_order('SELL', contracts, level)
         order_id = trade.order.orderId
         pending = PendingOrder(order_id=order_id, side='short', limit_price=level, size=size, stop_loss=stop_loss, take_profit=take_profit, trailing_stop=trailing_stop, submit_time=datetime.now(UTC), grid_level=level)
         self.pending_orders[order_id] = pending
         reason = f"Grid Short ({trend.value}, RSI: {rsi:.1f})"
-        print(f"  ⬇️ SHORT ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}")
+        atr = self.indicators.cache.get('atr', 0)
+        vol_note = f" [HIGH VOL ATR:{atr:.2f}→{contracts}cts]" if contracts < self.config.contracts_per_trade else f" [{contracts}cts]"
+        print(f"  ⬇️ SHORT ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}{vol_note}")
         print(f"     Reason: {reason}")
         print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
     

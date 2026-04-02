@@ -56,11 +56,9 @@ class PendingOrder:
 @dataclass
 class StrategyConfig:
     # Instrument settings
-    tick_size: float = 0.25              # ES tick size
+    tick_size: float = 0.25
 
     # Entry mode
-    # True  = grid anchor + level crossover entries (grid mode)
-    # False = simple trend + price action entries (scalp/scalp_aggressive)
     use_grid_entry: bool = True
 
     # Grid settings
@@ -104,7 +102,7 @@ class StrategyConfig:
     trailing_activation_pts: float = 5.0
     trailing_distance_pts: float = 5.0
 
-    # Risk management - pct-based (used by entry order sizing)
+    # Risk management - pct-based
     stop_loss_pct: float = 0.117
     take_profit_pct: float = 0.175
     use_trailing_stop: bool = True
@@ -124,9 +122,14 @@ class StrategyConfig:
     use_risk_based_position: bool = False
     risk_per_trade_pct: float = 1.0
     max_leverage: float = 3.0
-    contracts_per_trade: int = 1         # Number of contracts per entry order
+    contracts_per_trade: int = 1
 
-    # Grid mode stop - placed below all grid levels, not per-position
+    # ATR-based position sizing
+    # If ATR >= atr_high_volatility_threshold, use reduced contracts
+    atr_high_volatility_threshold: float = 4.5
+    contracts_per_trade_high_vol: int = 5
+
+    # Grid mode stop
     use_grid_stop: bool = False
     grid_stop_buffer_pts: float = 6.0
 
@@ -138,15 +141,15 @@ class StrategyConfig:
     post_exit_cooldown_bars: int = 2
 
     # scalp_robust filters
-    use_session_filter: bool = False     # Only trade within session window
-    session_start_hour: int = 9          # CT
+    use_session_filter: bool = False
+    session_start_hour: int = 9
     session_start_minute: int = 30
-    session_end_hour: int = 12           # CT
+    session_end_hour: int = 12
     session_end_minute: int = 0
-    use_5m_filter: bool = False          # Only enter if 5m trend direction matches 1m
-    use_volume_filter: bool = False      # Only enter on volume spike
-    volume_spike_multiplier: float = 1.5 # Current bar volume must exceed N x 20-bar avg
-    volume_lookback: int = 20            # Bars to average for volume baseline
+    use_5m_filter: bool = False
+    use_volume_filter: bool = False
+    volume_spike_multiplier: float = 1.5
+    volume_lookback: int = 20
 
     # Account
     initial_equity: float = 100000.0
@@ -157,7 +160,6 @@ class StrategyConfig:
 # =============================================================================
 
 def get_scalp_config() -> StrategyConfig:
-    """Single position, tight risk, simple price action entries. Bread and butter."""
     return StrategyConfig(
         use_grid_entry=False,
         max_positions=1,
@@ -179,11 +181,12 @@ def get_scalp_config() -> StrategyConfig:
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
         contracts_per_trade=10,
+        atr_high_volatility_threshold=4.5,
+        contracts_per_trade_high_vol=5,
     )
 
 
 def get_grid_config() -> StrategyConfig:
-    """Multiple positions, wider spacing, stop below all grid levels. Good for ranging markets."""
     return StrategyConfig(
         use_grid_entry=True,
         max_positions=3,
@@ -203,12 +206,12 @@ def get_grid_config() -> StrategyConfig:
         contracts_per_trade=3,
         use_grid_stop=True,
         grid_stop_buffer_pts=6.0,
+        atr_high_volatility_threshold=4.5,
+        contracts_per_trade_high_vol=5,
     )
 
 
 def get_scalp_robust_config() -> StrategyConfig:
-    """Scalp core logic + session filter (8:30-11:00 CT / 9:30-12:00 ET) + 5m trend alignment.
-    Identical entry/exit/risk to scalp, just stricter entry conditions for better edge."""
     return StrategyConfig(
         use_grid_entry=False,
         max_positions=1,
@@ -230,6 +233,8 @@ def get_scalp_robust_config() -> StrategyConfig:
         entry_rsi_sideways_short=70.0,
         entry_rsi_sideways_long=30.0,
         contracts_per_trade=10,
+        atr_high_volatility_threshold=4.5,
+        contracts_per_trade_high_vol=5,
         use_session_filter=True,
         session_start_hour=8,
         session_start_minute=30,
@@ -242,7 +247,6 @@ def get_scalp_robust_config() -> StrategyConfig:
     )
 
 
-# Preset registry
 CONFIG_PRESETS = {
     'scalp': get_scalp_config,
     'scalp_robust': get_scalp_robust_config,
