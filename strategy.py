@@ -439,20 +439,23 @@ class GridStrategy:
                         stop_loss = self._round_to_tick(fill_price + self.config.stop_loss_pts)
                         take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
 
+                # Use actual filled quantity for bracket orders
+                filled_qty = int(trade.orderStatus.filled)
+
                 # === NATIVE IB STOP ORDER ===
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
-                stop_trade = await self.broker.place_stop_order(stop_action, self.config.contracts_per_trade, stop_loss)
+                stop_trade = await self.broker.place_stop_order(stop_action, filled_qty, stop_loss)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 
                 # === NATIVE IB TAKE PROFIT ORDER ===
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
-                tp_trade = await self.broker.place_limit_order(tp_action, self.config.contracts_per_trade, take_profit)
+                tp_trade = await self.broker.place_limit_order(tp_action, filled_qty, take_profit)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
                 
                 position = Position(
                     side=pending.side,
                     entry_price=fill_price,
-                    size=pending.size,
+                    size=float(filled_qty),  # Store actual filled qty for P&L calculations
                     stop_loss=stop_loss,
                     take_profit=take_profit,
                     trailing_stop=None,
@@ -519,7 +522,7 @@ class GridStrategy:
                     pnl_pts = exit_price - position.entry_price
                 else:
                     pnl_pts = position.entry_price - exit_price
-                pnl_dollars = pnl_pts * 50 * self.config.contracts_per_trade
+                pnl_dollars = pnl_pts * 50 * int(position.size)
                 self.daily_pnl += pnl_dollars
                 self.equity += pnl_dollars
                 emoji = "✅" if pnl_pts >= 0 else "❌"
@@ -623,9 +626,9 @@ class GridStrategy:
             actual_exit = trigger_price
             print(f"  ⚠️ Fill price not available, using trigger: {trigger_price:.2f}")
         if position.side == 'long':
-            pnl = (actual_exit - position.entry_price) * self.config.contracts_per_trade * 50
+            pnl = (actual_exit - position.entry_price) * int(position.size) * 50
         else:
-            pnl = (position.entry_price - actual_exit) * self.config.contracts_per_trade * 50
+            pnl = (position.entry_price - actual_exit) * int(position.size) * 50
         self.daily_pnl += pnl
         self.equity += pnl
         self.positions.remove(position)
@@ -706,10 +709,10 @@ class GridStrategy:
             print(f"     ⏳ PENDING {pending.side.upper()} @ {pending.limit_price:.2f} (order {order_id}, {age_sec:.0f}s)")
         for pos in self.positions:
             if pos.side == 'long':
-                unrealized_pnl = (self.last_price - pos.entry_price) * self.config.contracts_per_trade * 50
+                unrealized_pnl = (self.last_price - pos.entry_price) * int(pos.size) * 50
                 profit_pts = (pos.highest_price or self.last_price) - pos.entry_price
             else:
-                unrealized_pnl = (pos.entry_price - self.last_price) * self.config.contracts_per_trade * 50
+                unrealized_pnl = (pos.entry_price - self.last_price) * int(pos.size) * 50
                 profit_pts = pos.entry_price - (pos.lowest_price or self.last_price)
             if self.config.use_trailing_stop and pos.trailing_activated:
                 active_stop = pos.trailing_stop
