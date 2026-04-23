@@ -1,0 +1,169 @@
+Logging to: es_bot_20260409_095447.log
+
+============================================================
+📈 MODE: SCALP
+   • 10 contract(s) max
+   • Grid entries only
+   • Trailing stop enabled
+   • SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts
+   • Best for: Normal sessions, choppy/ranging opens
+============================================================
+✓ Connected to IBKR (paper) - clientId=10
+✓ Front-month contract: ESM6 expiry=20260618
+
+============================================================
+Loading historical data for indicator warm-up...
+============================================================
+→ Fetching historical bars (1 D, 1 min)...
+✓ Loaded 955 historical bars
+
+Processing 955 historical bars...
+
+Indicators ready!
+  Bars loaded: 955
+  Last price: 6812.75
+  Trend: strong_bullish
+  RSI: 46.9
+  ATR: 3.71
+  MACD: 0.74 / Signal: 1.58
+  MA: 6815.74 / 6811.22 / 6804.85
+
+------------------------------------------------------------
+Account Value: $1,055,190.59
+Buying Power: $4,219,190.00
+Current Position: 0 contracts
+------------------------------------------------------------
+
+============================================================
+Starting live 1-minute bar stream...
+Strategy is now ACTIVE (SCALP mode)
+============================================================
+
+→ Subscribed to 5-second real-time bars (aggregating to 1 min)
+
+[2026-04-09 08:54] O:6812.75 H:6813.00 L:6812.00 C:6812.25 V:582.0
+  📈 Trend: sideways (raw: moderate_bullish)
+  🗺️  Grid: 0.080% | 🔺 6816.50 🔻 6812.00
+  📡 RSI: 39.3 | MACD: 0.47 | ATR: 3.48
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 08:55] O:6812.25 H:6814.25 L:6811.00 C:6813.50 V:3571.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6813.00 🔻 6812.00
+  📡 RSI: 37.2 | MACD: 0.35 | ATR: 3.43
+  📊 Filled: 0 | Pending: 0
+  📤 Limit BUY 10 @ 6813.50 submitted (ID: 62)
+  ⬆️ LONG ORDER @ 6813.50 | Size: 1.00 | SL: 6805.25 | TP: 6825.75 [10cts]
+     Reason: Grid Long (moderate_bullish, RSI: 37.2)
+     ⏳ Order 62 PENDING - awaiting fill confirmation
+  💰 Daily P&L: $+0.00
+  📋 Order 62 status: PreSubmitted
+  ✅ Fill: BOT 10.0 @ 6813.25
+  📋 Order 62 status: Filled
+  📤 Stop SELL 10 @ 6805.25 submitted (ID: 63)
+  📋 Order 63 status: PreSubmitted
+  📤 Limit SELL 10 @ 6825.25 submitted (ID: 64)
+  📋 Order 64 status: Submitted
+  ✅ FILL CONFIRMED: LONG @ 6813.25 (order 62)
+     📊 Bracket placed: SL #63 @ 6805.25 | TP #64 @ 6825.25
+     Trail activates @ +6.0 pts
+
+[2026-04-09 08:56] O:6813.50 H:6813.75 L:6810.25 C:6812.75 V:3759.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6814.25 🔻 6811.00
+  📡 RSI: 31.3 | MACD: 0.19 | ATR: 3.41
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $-250.00 | +6.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 08:57] O:6812.75 H:6816.75 L:6812.50 C:6815.50 V:4329.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6813.75 🔻 6810.25
+  📡 RSI: 41.6 | MACD: 0.29 | ATR: 3.50
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+1,125.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 08:58] O:6815.50 H:6816.25 L:6813.75 C:6815.00 V:3088.0
+  📈 Trend: moderate_bullish (raw: strong_bullish)
+  🗺️  Grid: 0.080% | 🔺 6816.75 🔻 6812.50
+  📡 RSI: 41.1 | MACD: 0.32 | ATR: 3.36
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+875.00 | +2.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 08:59] O:6815.00 H:6817.25 L:6814.50 C:6816.75 V:3470.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6816.25 🔻 6813.75
+  📡 RSI: 46.3 | MACD: 0.48 | ATR: 3.34
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+1,750.00 | +2.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 09:00] O:6816.50 H:6817.25 L:6814.00 C:6815.25 V:4001.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6817.25 🔻 6814.50
+  📡 RSI: 49.4 | MACD: 0.48 | ATR: 3.34
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+1,000.00 | +2.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 09:01] O:6815.25 H:6816.00 L:6812.75 C:6815.75 V:3242.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6817.25 🔻 6814.00
+  📡 RSI: 44.4 | MACD: 0.51 | ATR: 3.23
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+1,250.00 | +2.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 09:02] O:6815.75 H:6817.00 L:6814.25 C:6815.50 V:2583.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 6816.00 🔻 6812.75
+  📡 RSI: 42.5 | MACD: 0.51 | ATR: 3.25
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+1,125.00 | +2.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 09:03] O:6815.25 H:6817.75 L:6812.75 C:6817.25 V:2848.0
+  📈 Trend: moderate_bullish (raw: strong_bullish)
+  🗺️  Grid: 0.080% | 🔺 6817.00 🔻 6814.25
+  📡 RSI: 56.9 | MACD: 0.65 | ATR: 3.32
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+2,000.00 | +2.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 09:04] O:6817.25 H:6819.00 L:6816.00 C:6817.50 V:2481.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 6817.75 🔻 6812.75
+  📡 RSI: 66.7 | MACD: 0.76 | ATR: 3.21
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+2,125.00 | +1.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-09 09:05] O:6817.50 H:6821.00 L:6816.75 C:6819.00 V:3765.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 6819.00 🔻 6816.00
+  📡 RSI: 67.7 | MACD: 0.97 | ATR: 3.34
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | SL: 6805.25 | TP: 6825.25 | P&L: $+2,875.00 | +0.2 to trail
+  ✏️ Stop order 63 modified → 6818.25 [confirmed]
+  🔄 TRAILING ACTIVATED @ +7.75pts | Stop: 6805.25 → 6818.25
+  💰 Daily P&L: $+0.00
+  ✅ Fill: SLD 10.0 @ 6818.25
+  📋 Order 63 status: Filled
+
+[2026-04-09 09:06] O:6818.75 H:6819.25 L:6816.75 C:6817.25 V:2646.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 6821.00 🔻 6816.75
+  📡 RSI: 58.2 | MACD: 0.98 | ATR: 3.27
+  📊 Filled: 1 | Pending: 0
+  📍 LONG @ 6813.25 | Trail: 6818.25 | TP: 6825.25 | P&L: $+2,000.00 | 🔒 Trailing
+  📋 Order 64 status: PendingCancel
+  ✅ EXIT LONG @ 6818.25 | Trailing Stop
+     P&L: +5.00 pts ($+2,500.00) | Daily: $+2,500.00
+  ⏸️ Cooldown: 2 bar(s) remaining after exit
+  💰 Daily P&L: $+2,500.00
+  📋 Order 64 status: Cancelled
+→ Real-time bars cancelled
+✓ Disconnected from IBKR

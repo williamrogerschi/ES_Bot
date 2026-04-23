@@ -487,6 +487,15 @@ class GridStrategy:
                         pass
                     del self.pending_orders[order_id]
     
+    def _weighted_avg_fill(self, fills, fallback: float) -> float:
+        """Returns weighted average fill price across all fills."""
+        if not fills:
+            return fallback
+        total_qty = sum(f.execution.shares for f in fills)
+        if total_qty == 0:
+            return fallback
+        return sum(f.execution.price * f.execution.shares for f in fills) / total_qty
+
     async def _check_exits(self, bar: Dict):
         high = bar['high']
         low = bar['low']
@@ -498,19 +507,13 @@ class GridStrategy:
             order_to_cancel = None
             if position.stop_order_id and position.stop_order_id in self.broker._filled_orders:
                 filled_trade = self.broker._filled_orders[position.stop_order_id]
-                if filled_trade.fills:
-                    exit_price = filled_trade.fills[-1].execution.price
-                else:
-                    exit_price = position.stop_loss
+                exit_price = self._weighted_avg_fill(filled_trade.fills, position.stop_loss)
                 exit_reason = "Trailing Stop" if position.trailing_activated else "Stop Loss"
                 order_to_cancel = position.tp_order_id
                 del self.broker._filled_orders[position.stop_order_id]
             elif position.tp_order_id and position.tp_order_id in self.broker._filled_orders:
                 filled_trade = self.broker._filled_orders[position.tp_order_id]
-                if filled_trade.fills:
-                    exit_price = filled_trade.fills[-1].execution.price
-                else:
-                    exit_price = position.take_profit
+                exit_price = self._weighted_avg_fill(filled_trade.fills, position.take_profit)
                 exit_reason = "Take Profit"
                 order_to_cancel = position.stop_order_id
                 del self.broker._filled_orders[position.tp_order_id]
