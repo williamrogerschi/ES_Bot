@@ -151,6 +151,11 @@ class StrategyConfig:
     volume_spike_multiplier: float = 1.5
     volume_lookback: int = 20
 
+    # Session low short filter (scalp_robust only)
+    use_session_low_short_filter: bool = False
+    session_low_short_buffer: float = 10.0   # pts above session low to block shorts
+    session_low_short_hours: float = 2.0     # hours after open to apply filter
+
     # Account
     initial_equity: float = 100000.0
 
@@ -225,7 +230,7 @@ def get_scalp_robust_config() -> StrategyConfig:
         trailing_activation_pts=6.0,
         trailing_distance_pts=5.0,
         use_trailing_stop=True,
-        max_loss_per_day_pct=2.0,
+        max_loss_per_day_pct=100.0,
         trend_confirmation_bars=2,
         use_trend_reversal_exit=False,
         entry_rsi_bearish=55.0,
@@ -235,7 +240,7 @@ def get_scalp_robust_config() -> StrategyConfig:
         contracts_per_trade=10,
         atr_high_volatility_threshold=4.5,
         contracts_per_trade_high_vol=5,
-        use_session_filter=False,
+        use_session_filter=True,
         session_start_hour=8,
         session_start_minute=30,
         session_end_hour=11,
@@ -244,6 +249,9 @@ def get_scalp_robust_config() -> StrategyConfig:
         use_volume_filter=False,
         volume_spike_multiplier=1.2,
         volume_lookback=50,
+        use_session_low_short_filter=True,
+        session_low_short_buffer=10.0,
+        session_low_short_hours=2.0,
     )
 
 

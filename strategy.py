@@ -52,6 +52,10 @@ class GridStrategy:
         self.prev_rsi: float = 50.0
         self.bars_since_exit: int = 999  # Starts high so first entry is always allowed
 
+        # Session low tracking for scalp_robust short filter
+        self._session_low: float = float('inf')
+        self._session_low_date: Optional[int] = None
+
         # 5-minute bar aggregation (scalp_robust only)
         self.bars_5m: List[Dict] = []
         self.indicators_5m = Indicators(self.config)
@@ -262,10 +266,30 @@ class GridStrategy:
         rsi = self.indicators.cache.get('rsi', 50)
         current_price = bar['close']
         prev_bar = self.bars[-2]
+
+        # scalp_robust: block shorts taken within session_low_short_buffer pts of session low
+        # during the first session_low_short_hours hours of trading
+        def _short_blocked_by_session_low() -> bool:
+            if not self.config.use_session_low_short_filter:
+                return False
+            bar_ct = bar['time'].astimezone(CENTRAL)
+            session_open = bar_ct.replace(hour=8, minute=30, second=0, microsecond=0)
+            hours_since_open = (bar_ct - session_open).total_seconds() / 3600
+            if hours_since_open < 0 or hours_since_open > self.config.session_low_short_hours:
+                return False
+            if self._session_low == float('inf'):
+                return False
+            pts_above_low = current_price - self._session_low
+            if pts_above_low > self.config.session_low_short_buffer:
+                print(f"  🚫 Short blocked: price {current_price:.2f} is {pts_above_low:.1f} pts above session low {self._session_low:.2f} (limit: {self.config.session_low_short_buffer} pts, window: {self.config.session_low_short_hours:.1f} hrs)")
+                return True
+            return False
+
         if trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
             if rsi > self.config.entry_rsi_bearish:
                 if current_price < prev_bar['low']:
-                    await self._enter_short(current_price, rsi, trend)
+                    if not _short_blocked_by_session_low():
+                        await self._enter_short(current_price, rsi, trend)
         elif trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
             if rsi < self.config.entry_rsi_bullish:
                 if current_price > prev_bar['high']:
@@ -273,7 +297,8 @@ class GridStrategy:
         elif trend == TrendState.SIDEWAYS:
             if rsi > self.config.entry_rsi_sideways_short:
                 if current_price < prev_bar['low']:
-                    await self._enter_short(current_price, rsi, trend)
+                    if not _short_blocked_by_session_low():
+                        await self._enter_short(current_price, rsi, trend)
             elif rsi < self.config.entry_rsi_sideways_long:
                 if current_price > prev_bar['high']:
                     await self._enter_long(current_price, rsi, trend)
@@ -648,6 +673,14 @@ class GridStrategy:
         self.bars.append(bar)
         self.last_price = bar['close']
         current_day = bar['time'].day
+
+        # Track session low for scalp_robust short filter
+        if self._session_low_date != current_day:
+            self._session_low = bar['low']
+            self._session_low_date = current_day
+        else:
+            if bar['low'] < self._session_low:
+                self._session_low = bar['low']
         if self.last_reset_day != current_day:
             if self.last_reset_day is not None:
                 print(f"\n📅 New trading day. Previous day P&L: ${self.daily_pnl:+,.2f}")
