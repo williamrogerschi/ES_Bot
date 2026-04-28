@@ -1,0 +1,62 @@
+Logging to: es_bot_20260424_135252.log
+
+============================================================
+🛡️  MODE: SCALP ROBUST
+   • 10 contract(s) max
+   • Scalp core logic + session filter + 5m trend alignment
+   • Trailing stop enabled
+   • SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts
+   • Session: 9:30-12:00 CT only
+   • 5m trend must align with 1m direction
+   • Best for: High-quality morning session trades
+============================================================
+✓ Connected to IBKR (paper) - clientId=10
+✓ Front-month contract: ESM6 expiry=20260618
+
+============================================================
+Loading historical data for indicator warm-up...
+============================================================
+→ Fetching historical bars (1 D, 1 min)...
+✓ Loaded 1193 historical bars
+
+Processing 1193 historical bars...
+
+Indicators ready!
+  Bars loaded: 1193
+  Last price: 7190.75
+  Trend: strong_bullish
+  RSI: 58.5
+  ATR: 1.64
+  MACD: 0.79 / Signal: 0.73
+  MA: 7189.50 / 7188.40 / 7182.61
+
+------------------------------------------------------------
+Account Value: $1,062,442.56
+Buying Power: $4,238,016.02
+Current Position: 0 contracts
+------------------------------------------------------------
+
+============================================================
+Starting live 1-minute bar stream...
+Strategy is now ACTIVE (SCALP_ROBUST mode)
+============================================================
+
+→ Subscribed to 5-second real-time bars (aggregating to 1 min)
+
+[2026-04-24 12:52] O:7190.75 H:7191.00 L:7190.50 C:7190.75 V:258.0
+  📈 Trend: sideways (raw: strong_bullish)
+  🗺️  Grid: 0.080% | 🔺 7190.75 🔻 7189.00
+  📡 RSI: 66.7 | MACD: 0.78 | ATR: 1.52
+  📊 Filled: 0 | Pending: 0 | 5m: sideways
+  🕐 Outside session (12:52 CT) — no entries
+  💰 Daily P&L: $+0.00
+
+[2026-04-24 12:53] O:7190.75 H:7192.50 L:7190.75 C:7192.00 V:1113.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7191.00 🔻 7190.50
+  📡 RSI: 67.6 | MACD: 0.87 | ATR: 1.50
+  📊 Filled: 0 | Pending: 0 | 5m: sideways
+  🕐 Outside session (12:53 CT) — no entries
+  💰 Daily P&L: $+0.00
+→ Real-time bars cancelled
+✓ Disconnected from IBKR
