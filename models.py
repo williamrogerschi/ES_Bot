@@ -133,6 +133,10 @@ class StrategyConfig:
     use_grid_stop: bool = False
     grid_stop_buffer_pts: float = 6.0
 
+    # Stop-limit offset: how far below (long) or above (short) the stop price to set the limit
+    # Prevents catastrophic slippage on stop fills — set to 0 to use plain market stop
+    stop_limit_offset_pts: float = 4.0
+
     # Trend-following entry (scalp_aggressive only)
     use_trend_follow_entry: bool = False
     trend_follow_rsi_long: float = 45.0
@@ -176,7 +180,7 @@ def get_scalp_config() -> StrategyConfig:
         take_profit_pct=0.18,
         trailing_stop_pct=0.07,
         trailing_activation_pts=6.0,
-        trailing_distance_pts=6.0, #originally at 5.0
+        trailing_distance_pts=6.0,
         use_trailing_stop=True,
         max_loss_per_day_pct=100.0,
         trend_confirmation_bars=2,
@@ -188,6 +192,11 @@ def get_scalp_config() -> StrategyConfig:
         contracts_per_trade=10,
         atr_high_volatility_threshold=4.5,
         contracts_per_trade_high_vol=5,
+        use_session_filter=True,
+        session_start_hour=8,
+        session_start_minute=30,
+        session_end_hour=14,
+        session_end_minute=30,
     )
 
 
@@ -228,7 +237,7 @@ def get_scalp_robust_config() -> StrategyConfig:
         take_profit_pct=0.18,
         trailing_stop_pct=0.07,
         trailing_activation_pts=6.0,
-        trailing_distance_pts=6.0, #originally at 5.0
+        trailing_distance_pts=6.0,
         use_trailing_stop=True,
         max_loss_per_day_pct=100.0,
         trend_confirmation_bars=2,

@@ -1,0 +1,1132 @@
+2026-04-29 11:46:40 | ERROR    | Error 1100, reqId -1: Connectivity between IBKR and Trader Workstation has been lost.
+2026-04-29 11:47:00 | ERROR    | Error 1100, reqId -1: Connectivity between IBKR and Trader Workstation has been lost.
+2026-04-29 11:47:04 | ERROR    | Error 1100, reqId -1: Connectivity between IBKR and Trader Workstation has been lost.
+2026-04-29 11:47:22 | ERROR    | Error handling fields: ['10', '204', 'ES', 'FUT', '20260618 08:30:00 US/Central', '0', '', 'CME', 'USD', 'ESM6', 'ES', 'ES', '649180678', '0.25', '50', 'ACTIVETIM,AD,ADJUST,ALERT,ALGO,ALLOC,AVGCOST,BASKET,BENCHPX,COND,CONDORDER,DAY,DEACT,DEACTDIS,DEACTEOD,GAT,GTC,GTD,GTT,HID,ICE,IOC,LIT,LMT,LTH,MIT,MKT,MTL,NGCOMB,NONALGO,OCA,PEGBENCH,SCALE,SCALERST,SNAPMID,SNAPMKT,SNAPREL,STP,STPLMT,TRAIL,TRAILLIT,TRAILLMT,TRAILMIT,WHATIF', 'CME,QBALGO', '1', '11004968', 'E-mini S&P 500', '', '202606', '', '', '', 'US/Central', '20260428:1700-20260429:1600;20260429:1700-20260430:1600;20260430:1700-20260501:1600;20260502:CLOSED;20260503:1700-20260504:1600;20260504:1700-20260505:1600', '20260429:0830-20260429:1600;20260430:0830-20260430:1600;20260501:0830-20260501:1600;20260502:CLOSED;20260503:CLOSED;20260504:0830-20260504:1600;20260504:1700-20260505:1600', '', '', '0', '2147483647', 'ES', 'IND', '67,67', '20260618', '', '1', '1', '1']
+Traceback (most recent call last):
+  File "C:\Python312\Lib\site-packages\ib_insync\decoder.py", line 198, in interpret
+    handler(fields)
+  File "C:\Python312\Lib\site-packages\ib_insync\decoder.py", line 336, in contractDetails
+    self.wrapper.contractDetails(int(reqId), cd)
+  File "C:\Python312\Lib\site-packages\ib_insync\wrapper.py", line 521, in contractDetails
+    self._results[reqId].append(contractDetails)
+    ~~~~~~~~~~~~~^^^^^^^
+KeyError: 204
+2026-04-29 11:47:22 | ERROR    | Error 1102, reqId -1: Connectivity between IBKR and Trader Workstation has been restored - data maintained. All data farms are connected: usfarm.nj; usfuture; cashfarm; usfarm; euhmds; fundfarm; ushmds; secdefnj.
+d: strong_bearish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7154.25 🔻 7152.50
+  📡 RSI: 47.0 | MACD: -2.53 | ATR: 3.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:51] O:7157.00 H:7157.50 L:7154.50 C:7157.00 V:3642.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.75 🔻 7152.25
+  📡 RSI: 51.3 | MACD: -2.13 | ATR: 3.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:52] O:7156.75 H:7156.75 L:7154.25 C:7155.00 V:2490.0
+  📈 Trend: strong_bearish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7157.50 🔻 7154.50
+  📡 RSI: 41.0 | MACD: -1.95 | ATR: 3.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:53] O:7154.75 H:7159.75 L:7154.50 C:7159.00 V:3902.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7156.75 🔻 7154.25
+  📡 RSI: 54.5 | MACD: -1.47 | ATR: 3.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:54] O:7159.00 H:7160.50 L:7158.50 C:7159.25 V:3367.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7159.75 🔻 7154.50
+  📡 RSI: 54.5 | MACD: -1.06 | ATR: 3.30
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:55] O:7159.50 H:7161.25 L:7158.75 C:7160.50 V:3810.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.50 🔻 7158.50
+  📡 RSI: 56.0 | MACD: -0.62 | ATR: 3.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:56] O:7160.50 H:7163.50 L:7160.50 C:7162.50 V:4098.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7158.75
+  📡 RSI: 69.4 | MACD: -0.12 | ATR: 3.23
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:57] O:7162.75 H:7162.75 L:7161.50 C:7161.50 V:2502.0
+  📈 Trend: moderate_bearish (raw: moderate_bullish)
+  🗺️  Grid: 0.080% | 🔺 7163.50 🔻 7160.50
+  📡 RSI: 69.4 | MACD: 0.20 | ATR: 3.11
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:58] O:7161.50 H:7161.50 L:7158.75 C:7159.50 V:3100.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7162.75 🔻 7161.50
+  📡 RSI: 71.1 | MACD: 0.29 | ATR: 3.09
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 08:59] O:7159.75 H:7162.25 L:7159.00 C:7160.75 V:2971.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7161.50 🔻 7158.75
+  📡 RSI: 70.4 | MACD: 0.46 | ATR: 3.00
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:00] O:7160.75 H:7161.25 L:7156.75 C:7156.75 V:4212.0
+  📈 Trend: moderate_bullish (raw: strong_bearish)
+  🗺️  Grid: 0.080% | 🔺 7162.25 🔻 7159.00
+  📡 RSI: 58.8 | MACD: 0.26 | ATR: 3.04
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:01] O:7156.75 H:7158.75 L:7156.00 C:7156.25 V:2926.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7156.75
+  📡 RSI: 60.0 | MACD: 0.07 | ATR: 3.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:02] O:7156.25 H:7160.00 L:7155.75 C:7159.75 V:2827.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7158.75 🔻 7156.00
+  📡 RSI: 63.5 | MACD: 0.19 | ATR: 3.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:03] O:7159.75 H:7160.00 L:7157.75 C:7157.75 V:2394.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7155.75
+  📡 RSI: 58.9 | MACD: 0.13 | ATR: 3.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:04] O:7157.75 H:7161.00 L:7157.00 C:7160.50 V:2807.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7157.75
+  📡 RSI: 57.0 | MACD: 0.30 | ATR: 3.11
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:05] O:7160.50 H:7161.00 L:7159.00 C:7161.00 V:2128.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7161.00 🔻 7157.00
+  📡 RSI: 57.4 | MACD: 0.47 | ATR: 3.04
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:06] O:7161.00 H:7161.75 L:7159.00 C:7160.25 V:2236.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7161.00 🔻 7159.00
+  📡 RSI: 60.2 | MACD: 0.53 | ATR: 3.04
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:07] O:7160.25 H:7161.25 L:7158.50 C:7160.00 V:3441.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7161.75 🔻 7159.00
+  📡 RSI: 52.3 | MACD: 0.56 | ATR: 2.86
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:08] O:7159.75 H:7161.50 L:7158.50 C:7160.00 V:2560.0
+  📈 Trend: moderate_bullish (raw: strong_bullish)
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7158.50
+  📡 RSI: 51.7 | MACD: 0.57 | ATR: 2.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:09] O:7160.00 H:7162.00 L:7159.75 C:7161.75 V:2016.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7161.50 🔻 7158.50
+  📡 RSI: 52.8 | MACD: 0.72 | ATR: 2.91
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:10] O:7161.50 H:7163.25 L:7160.50 C:7162.25 V:3199.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7162.00 🔻 7159.75
+  📡 RSI: 49.4 | MACD: 0.86 | ATR: 2.89
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:11] O:7162.25 H:7163.00 L:7161.00 C:7161.00 V:2053.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7163.25 🔻 7160.50
+  📡 RSI: 48.8 | MACD: 0.87 | ATR: 2.95
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:12] O:7161.00 H:7164.50 L:7160.75 C:7164.00 V:2423.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7163.00 🔻 7161.00
+  📡 RSI: 60.2 | MACD: 1.10 | ATR: 3.02
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:13] O:7164.00 H:7166.00 L:7163.50 C:7165.25 V:3592.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7164.50 🔻 7160.75
+  📡 RSI: 60.2 | MACD: 1.37 | ATR: 2.96
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:14] O:7165.00 H:7165.50 L:7164.25 C:7164.75 V:2730.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7166.00 🔻 7163.50
+  📡 RSI: 71.6 | MACD: 1.52 | ATR: 2.73
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:15] O:7164.75 H:7165.75 L:7163.00 C:7165.00 V:3362.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7165.50 🔻 7164.25
+  📡 RSI: 74.0 | MACD: 1.65 | ATR: 2.73
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:16] O:7165.00 H:7167.00 L:7164.50 C:7165.00 V:3589.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7165.75 🔻 7163.00
+  📡 RSI: 67.8 | MACD: 1.73 | ATR: 2.61
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:17] O:7165.00 H:7166.50 L:7164.75 C:7164.75 V:2266.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7167.00 🔻 7164.50
+  📡 RSI: 76.9 | MACD: 1.75 | ATR: 2.57
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:18] O:7165.00 H:7165.75 L:7163.75 C:7164.00 V:2282.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7166.50 🔻 7164.75
+  📡 RSI: 65.9 | MACD: 1.69 | ATR: 2.43
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:19] O:7164.00 H:7164.50 L:7162.75 C:7163.50 V:1891.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7165.75 🔻 7163.75
+  📡 RSI: 61.4 | MACD: 1.58 | ATR: 2.41
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:20] O:7163.50 H:7165.00 L:7163.00 C:7164.50 V:2472.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7164.50 🔻 7162.75
+  📡 RSI: 68.9 | MACD: 1.55 | ATR: 2.36
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:21] O:7164.50 H:7165.25 L:7162.75 C:7164.50 V:1705.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7165.00 🔻 7163.00
+  📡 RSI: 70.5 | MACD: 1.52 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:22] O:7164.75 H:7166.50 L:7164.75 C:7165.75 V:1784.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7165.25 🔻 7162.75
+  📡 RSI: 73.5 | MACD: 1.57 | ATR: 2.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:23] O:7165.75 H:7167.50 L:7165.25 C:7166.75 V:2075.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7166.50 🔻 7164.75
+  📡 RSI: 71.7 | MACD: 1.68 | ATR: 2.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:24] O:7166.75 H:7167.25 L:7165.00 C:7166.75 V:1844.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7167.50 🔻 7165.25
+  📡 RSI: 70.5 | MACD: 1.74 | ATR: 2.23
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:25] O:7167.00 H:7168.25 L:7167.00 C:7167.25 V:2238.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7167.25 🔻 7165.00
+  📡 RSI: 80.5 | MACD: 1.81 | ATR: 2.20
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:26] O:7167.25 H:7168.75 L:7167.00 C:7167.00 V:1769.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7168.25 🔻 7167.00
+  📡 RSI: 70.0 | MACD: 1.82 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:27] O:7166.75 H:7169.25 L:7166.50 C:7167.75 V:2290.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7168.75 🔻 7167.00
+  📡 RSI: 67.9 | MACD: 1.87 | ATR: 2.07
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:28] O:7167.75 H:7169.50 L:7167.00 C:7169.00 V:2465.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.25 🔻 7166.50
+  📡 RSI: 77.4 | MACD: 1.99 | ATR: 2.16
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:29] O:7169.00 H:7169.75 L:7167.75 C:7168.00 V:2526.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.50 🔻 7167.00
+  📡 RSI: 67.6 | MACD: 1.98 | ATR: 2.11
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:30] O:7168.25 H:7168.50 L:7166.25 C:7167.50 V:3866.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.75 🔻 7167.75
+  📡 RSI: 63.9 | MACD: 1.91 | ATR: 2.09
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:31] O:7167.75 H:7169.25 L:7166.25 C:7169.25 V:3227.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7168.50 🔻 7166.25
+  📡 RSI: 71.4 | MACD: 1.97 | ATR: 2.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:32] O:7169.00 H:7171.25 L:7169.00 C:7170.25 V:3213.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.25 🔻 7166.25
+  📡 RSI: 79.1 | MACD: 2.08 | ATR: 2.20
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:33] O:7170.25 H:7171.75 L:7170.25 C:7171.00 V:2194.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7171.25 🔻 7169.00
+  📡 RSI: 84.1 | MACD: 2.20 | ATR: 2.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:34] O:7171.00 H:7172.75 L:7170.50 C:7172.25 V:2547.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7171.75 🔻 7170.25
+  📡 RSI: 84.4 | MACD: 2.37 | ATR: 2.20
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:35] O:7172.25 H:7174.25 L:7171.50 C:7173.25 V:3010.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7172.75 🔻 7170.50
+  📡 RSI: 85.7 | MACD: 2.55 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:36] O:7173.50 H:7174.50 L:7172.75 C:7173.75 V:2499.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7174.25 🔻 7171.50
+  📡 RSI: 84.8 | MACD: 2.71 | ATR: 2.20
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:37] O:7174.00 H:7175.25 L:7172.75 C:7173.00 V:3229.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7174.50 🔻 7172.75
+  📡 RSI: 77.8 | MACD: 2.74 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:38] O:7173.00 H:7173.75 L:7172.00 C:7173.50 V:2409.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7175.25 🔻 7172.75
+  📡 RSI: 78.7 | MACD: 2.77 | ATR: 2.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:39] O:7173.50 H:7173.75 L:7171.50 C:7172.00 V:1557.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7173.75 🔻 7172.00
+  📡 RSI: 68.6 | MACD: 2.64 | ATR: 2.23
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:40] O:7172.00 H:7172.00 L:7170.25 C:7172.00 V:2154.0
+  📈 Trend: strong_bullish
+  🗺️  Grid: 0.080% | 🔺 7173.75 🔻 7171.50
+  📡 RSI: 70.0 | MACD: 2.52 | ATR: 2.23
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:41] O:7171.75 H:7172.00 L:7170.25 C:7170.50 V:1895.0
+  📈 Trend: strong_bullish (raw: moderate_bullish)
+  🗺️  Grid: 0.080% | 🔺 7172.00 🔻 7170.25
+  📡 RSI: 60.4 | MACD: 2.27 | ATR: 2.16
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:42] O:7170.25 H:7172.50 L:7170.00 C:7172.00 V:1860.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7172.00 🔻 7170.25
+  📡 RSI: 61.1 | MACD: 2.17 | ATR: 2.16
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:43] O:7171.75 H:7171.75 L:7170.00 C:7170.50 V:2075.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7172.50 🔻 7170.00
+  📡 RSI: 58.9 | MACD: 1.94 | ATR: 2.16
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:44] O:7170.50 H:7172.00 L:7170.25 C:7171.75 V:1844.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7171.75 🔻 7170.00
+  📡 RSI: 64.4 | MACD: 1.85 | ATR: 2.12
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:45] O:7172.00 H:7172.50 L:7170.50 C:7170.75 V:2326.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7172.00 🔻 7170.25
+  📡 RSI: 55.4 | MACD: 1.67 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:46] O:7170.50 H:7171.50 L:7170.00 C:7170.25 V:2166.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7172.50 🔻 7170.50
+  📡 RSI: 50.0 | MACD: 1.47 | ATR: 2.00
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:47] O:7170.00 H:7170.25 L:7168.25 C:7169.25 V:2181.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7171.50 🔻 7170.00
+  📡 RSI: 43.6 | MACD: 1.22 | ATR: 2.04
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:48] O:7169.25 H:7171.25 L:7169.25 C:7171.25 V:1947.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7170.25 🔻 7168.25
+  📡 RSI: 46.6 | MACD: 1.17 | ATR: 2.02
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:49] O:7171.25 H:7171.50 L:7168.25 C:7168.25 V:1708.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7171.25 🔻 7169.25
+  📡 RSI: 34.8 | MACD: 0.87 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:50] O:7168.25 H:7169.25 L:7167.50 C:7169.00 V:2164.0
+  📈 Trend: moderate_bullish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7171.50 🔻 7168.25
+  📡 RSI: 35.8 | MACD: 0.69 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:51] O:7168.75 H:7169.50 L:7167.75 C:7168.75 V:1895.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7169.25 🔻 7167.50
+  📡 RSI: 36.9 | MACD: 0.53 | ATR: 2.00
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:52] O:7168.50 H:7169.50 L:7167.75 C:7168.50 V:1907.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7169.50 🔻 7167.75
+  📡 RSI: 34.4 | MACD: 0.37 | ATR: 2.00
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:53] O:7168.75 H:7169.75 L:7168.50 C:7169.25 V:1806.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7169.50 🔻 7167.75
+  📡 RSI: 41.0 | MACD: 0.30 | ATR: 1.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:54] O:7169.50 H:7170.50 L:7169.50 C:7169.75 V:1704.0
+  📈 Trend: moderate_bearish (raw: moderate_bullish)
+  🗺️  Grid: 0.080% | 🔺 7169.75 🔻 7168.50
+  📡 RSI: 42.9 | MACD: 0.28 | ATR: 1.89
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:55] O:7169.75 H:7169.75 L:7167.75 C:7168.50 V:1476.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7170.50 🔻 7169.50
+  📡 RSI: 43.5 | MACD: 0.17 | ATR: 1.91
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:56] O:7168.25 H:7169.25 L:7167.50 C:7167.75 V:1658.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.75 🔻 7167.75
+  📡 RSI: 35.6 | MACD: 0.01 | ATR: 1.86
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:57] O:7167.50 H:7169.00 L:7167.50 C:7168.75 V:1801.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.25 🔻 7167.50
+  📡 RSI: 43.9 | MACD: -0.03 | ATR: 1.82
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:58] O:7168.75 H:7169.25 L:7167.25 C:7168.00 V:1504.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.00 🔻 7167.50
+  📡 RSI: 36.4 | MACD: -0.12 | ATR: 1.84
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 09:59] O:7168.00 H:7168.75 L:7167.25 C:7168.00 V:1471.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7169.25 🔻 7167.25
+  📡 RSI: 39.2 | MACD: -0.19 | ATR: 1.80
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:00] O:7167.75 H:7168.50 L:7167.25 C:7168.50 V:2575.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7168.75 🔻 7167.25
+  📡 RSI: 43.1 | MACD: -0.20 | ATR: 1.79
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:01] O:7168.50 H:7168.50 L:7164.50 C:7165.50 V:3900.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7168.50 🔻 7167.25
+  📡 RSI: 37.3 | MACD: -0.45 | ATR: 1.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:02] O:7165.50 H:7165.75 L:7164.00 C:7165.25 V:2511.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7168.50 🔻 7164.50
+  📡 RSI: 26.9 | MACD: -0.66 | ATR: 1.91
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:03] O:7165.00 H:7165.50 L:7162.50 C:7163.25 V:3678.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7165.75 🔻 7164.00
+  📡 RSI: 29.2 | MACD: -0.97 | ATR: 1.89
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:04] O:7163.25 H:7165.00 L:7162.75 C:7164.50 V:2016.0
+  📈 Trend: moderate_bullish (raw: strong_bearish)
+  🗺️  Grid: 0.080% | 🔺 7165.50 🔻 7162.50
+  📡 RSI: 32.0 | MACD: -1.11 | ATR: 1.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:05] O:7164.25 H:7165.00 L:7163.25 C:7164.75 V:2101.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7165.00 🔻 7162.75
+  📡 RSI: 34.0 | MACD: -1.18 | ATR: 1.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:06] O:7164.50 H:7165.50 L:7164.25 C:7165.25 V:1814.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7165.00 🔻 7163.25
+  📡 RSI: 37.3 | MACD: -1.19 | ATR: 1.89
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:07] O:7165.25 H:7165.25 L:7162.50 C:7163.00 V:1777.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7165.50 🔻 7164.25
+  📡 RSI: 28.1 | MACD: -1.36 | ATR: 2.00
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:08] O:7162.75 H:7163.00 L:7161.50 C:7161.50 V:2483.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7165.25 🔻 7162.50
+  📡 RSI: 23.0 | MACD: -1.59 | ATR: 2.02
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:09] O:7161.50 H:7161.75 L:7159.25 C:7159.50 V:4444.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7163.00 🔻 7161.50
+  📡 RSI: 21.9 | MACD: -1.92 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:10] O:7159.25 H:7160.00 L:7158.50 C:7158.75 V:2789.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.75 🔻 7159.25
+  📡 RSI: 21.9 | MACD: -2.21 | ATR: 2.04
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:11] O:7158.75 H:7159.50 L:7156.25 C:7156.75 V:3184.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7158.50
+  📡 RSI: 14.7 | MACD: -2.58 | ATR: 2.16
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:12] O:7156.75 H:7157.00 L:7154.75 C:7156.75 V:4288.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7159.50 🔻 7156.25
+  📡 RSI: 15.4 | MACD: -2.84 | ATR: 2.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:13] O:7156.50 H:7157.75 L:7155.75 C:7156.50 V:3692.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.00 🔻 7154.75
+  📡 RSI: 15.2 | MACD: -3.02 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:14] O:7156.25 H:7157.00 L:7155.50 C:7155.75 V:3492.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.75 🔻 7155.75
+  📡 RSI: 11.9 | MACD: -3.20 | ATR: 2.23
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:15] O:7155.75 H:7158.75 L:7154.25 C:7157.75 V:4537.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.00 🔻 7155.50
+  📡 RSI: 25.4 | MACD: -3.14 | ATR: 2.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:16] O:7157.75 H:7160.50 L:7157.75 C:7160.50 V:3484.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7158.75 🔻 7154.25
+  📡 RSI: 37.0 | MACD: -2.83 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:17] O:7160.25 H:7162.00 L:7160.00 C:7161.50 V:3142.0
+  📈 Trend: strong_bearish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7160.50 🔻 7157.75
+  📡 RSI: 44.9 | MACD: -2.49 | ATR: 2.27
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:18] O:7161.50 H:7162.00 L:7158.75 C:7159.25 V:2587.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.00 🔻 7160.00
+  📡 RSI: 35.6 | MACD: -2.36 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:19] O:7159.25 H:7160.00 L:7158.25 C:7160.00 V:2415.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.00 🔻 7158.75
+  📡 RSI: 37.3 | MACD: -2.18 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:20] O:7160.00 H:7161.00 L:7159.25 C:7160.50 V:2226.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7158.25
+  📡 RSI: 37.3 | MACD: -1.97 | ATR: 2.38
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:21] O:7160.50 H:7161.25 L:7159.25 C:7161.25 V:1971.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.00 🔻 7159.25
+  📡 RSI: 44.9 | MACD: -1.73 | ATR: 2.32
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:22] O:7161.25 H:7162.00 L:7160.25 C:7160.25 V:1638.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7159.25
+  📡 RSI: 46.3 | MACD: -1.60 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:23] O:7160.00 H:7161.25 L:7159.50 C:7161.25 V:1144.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.00 🔻 7160.25
+  📡 RSI: 55.6 | MACD: -1.39 | ATR: 2.29
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:24] O:7161.00 H:7162.75 L:7161.00 C:7161.50 V:1625.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7159.50
+  📡 RSI: 59.0 | MACD: -1.20 | ATR: 2.30
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:25] O:7161.25 H:7163.25 L:7161.25 C:7163.25 V:1631.0
+  📈 Trend: moderate_bearish (raw: strong_bearish)
+  🗺️  Grid: 0.080% | 🔺 7162.75 🔻 7161.00
+  📡 RSI: 71.7 | MACD: -0.90 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:26] O:7163.00 H:7163.25 L:7162.00 C:7163.00 V:1488.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7163.25 🔻 7161.25
+  📡 RSI: 70.5 | MACD: -0.67 | ATR: 2.14
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:27] O:7163.00 H:7163.75 L:7160.75 C:7162.00 V:1897.0
+  📈 Trend: strong_bearish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7163.25 🔻 7162.00
+  📡 RSI: 67.2 | MACD: -0.56 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:28] O:7162.00 H:7162.25 L:7159.25 C:7161.00 V:1999.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7163.75 🔻 7160.75
+  📡 RSI: 66.2 | MACD: -0.55 | ATR: 2.32
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:29] O:7161.00 H:7164.50 L:7160.50 C:7162.00 V:3962.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.25 🔻 7159.25
+  📡 RSI: 63.9 | MACD: -0.45 | ATR: 2.29
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:30] O:7161.75 H:7164.00 L:7161.75 C:7162.50 V:2244.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7164.50 🔻 7160.50
+  📡 RSI: 57.7 | MACD: -0.34 | ATR: 2.25
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:31] O:7162.25 H:7163.25 L:7161.25 C:7163.00 V:1383.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7164.00 🔻 7161.75
+  📡 RSI: 56.0 | MACD: -0.20 | ATR: 2.25
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:32] O:7162.75 H:7162.75 L:7158.25 C:7160.25 V:6163.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7163.25 🔻 7161.25
+  📡 RSI: 53.8 | MACD: -0.31 | ATR: 2.36
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:33] O:7160.50 H:7161.25 L:7159.75 C:7161.25 V:1961.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.75 🔻 7158.25
+  📡 RSI: 54.7 | MACD: -0.31 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:34] O:7161.25 H:7161.75 L:7158.75 C:7161.75 V:2041.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7159.75
+  📡 RSI: 54.7 | MACD: -0.27 | ATR: 2.43
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:35] O:7161.75 H:7162.75 L:7161.00 C:7162.50 V:2140.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.75 🔻 7158.75
+  📡 RSI: 54.7 | MACD: -0.17 | ATR: 2.41
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:36] O:7162.25 H:7162.50 L:7160.25 C:7161.75 V:2836.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.75 🔻 7161.00
+  📡 RSI: 55.8 | MACD: -0.16 | ATR: 2.45
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:37] O:7161.50 H:7162.25 L:7159.75 C:7160.00 V:1767.0
+  📈 Trend: moderate_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.50 🔻 7160.25
+  📡 RSI: 45.5 | MACD: -0.28 | ATR: 2.50
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:38] O:7160.00 H:7160.00 L:7158.50 C:7159.50 V:1487.0
+  📈 Trend: moderate_bearish (raw: strong_bearish)
+  🗺️  Grid: 0.080% | 🔺 7162.25 🔻 7159.75
+  📡 RSI: 42.9 | MACD: -0.42 | ATR: 2.48
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:39] O:7159.25 H:7160.25 L:7158.50 C:7160.00 V:1434.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7158.50
+  📡 RSI: 37.3 | MACD: -0.48 | ATR: 2.46
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:40] O:7159.75 H:7160.25 L:7158.25 C:7158.25 V:1803.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.25 🔻 7158.50
+  📡 RSI: 33.3 | MACD: -0.66 | ATR: 2.52
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:41] O:7158.50 H:7158.75 L:7157.50 C:7157.50 V:1327.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.25 🔻 7158.25
+  📡 RSI: 33.9 | MACD: -0.85 | ATR: 2.39
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:42] O:7157.50 H:7159.75 L:7157.25 C:7159.75 V:1451.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7158.75 🔻 7157.50
+  📡 RSI: 45.9 | MACD: -0.82 | ATR: 2.36
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:43] O:7159.75 H:7161.00 L:7159.00 C:7159.50 V:1588.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7159.75 🔻 7157.25
+  📡 RSI: 41.4 | MACD: -0.80 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:44] O:7159.50 H:7160.00 L:7157.25 C:7159.00 V:1456.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.00 🔻 7159.00
+  📡 RSI: 37.9 | MACD: -0.82 | ATR: 2.25
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:45] O:7158.75 H:7162.50 L:7158.50 C:7162.00 V:1610.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7157.25
+  📡 RSI: 47.1 | MACD: -0.58 | ATR: 2.39
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:46] O:7162.00 H:7162.75 L:7161.25 C:7161.50 V:1727.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.50 🔻 7158.50
+  📡 RSI: 54.2 | MACD: -0.43 | ATR: 2.16
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:47] O:7161.50 H:7162.75 L:7161.00 C:7161.50 V:1177.0
+  📈 Trend: strong_bearish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7162.75 🔻 7161.25
+  📡 RSI: 50.9 | MACD: -0.30 | ATR: 2.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:48] O:7161.50 H:7161.75 L:7160.50 C:7161.00 V:1709.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.75 🔻 7161.00
+  📡 RSI: 47.3 | MACD: -0.24 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:49] O:7160.75 H:7162.50 L:7160.25 C:7162.00 V:1011.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.75 🔻 7160.50
+  📡 RSI: 48.2 | MACD: -0.11 | ATR: 2.09
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:50] O:7162.00 H:7163.75 L:7162.00 C:7163.00 V:1577.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7162.50 🔻 7160.25
+  📡 RSI: 54.4 | MACD: 0.07 | ATR: 2.05
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:51] O:7163.25 H:7163.50 L:7154.00 C:7159.50 V:12339.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7163.75 🔻 7162.00
+  📡 RSI: 48.4 | MACD: -0.07 | ATR: 2.55
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:52] O:7159.50 H:7161.25 L:7154.00 C:7157.50 V:4859.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7163.50 🔻 7154.00
+  📡 RSI: 44.3 | MACD: -0.33 | ATR: 2.96
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:53] O:7157.50 H:7157.75 L:7149.00 C:7150.00 V:10528.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7161.25 🔻 7154.00
+  📡 RSI: 29.6 | MACD: -1.14 | ATR: 3.46
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:54] O:7150.00 H:7150.25 L:7145.25 C:7148.75 V:11139.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.75 🔻 7149.00
+  📡 RSI: 30.2 | MACD: -1.85 | ATR: 3.68
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:55] O:7148.75 H:7152.00 L:7145.25 C:7152.00 V:7671.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7150.25 🔻 7145.25
+  📡 RSI: 39.6 | MACD: -2.13 | ATR: 4.07
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:56] O:7151.75 H:7153.00 L:7148.75 C:7149.50 V:4602.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7152.00 🔻 7145.25
+  📡 RSI: 30.8 | MACD: -2.53 | ATR: 4.20
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:57] O:7149.50 H:7150.75 L:7148.00 C:7149.25 V:4430.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7153.00 🔻 7148.75
+  📡 RSI: 30.8 | MACD: -2.83 | ATR: 4.25
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:58] O:7149.25 H:7153.75 L:7149.00 C:7153.50 V:4095.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7150.75 🔻 7148.00
+  📡 RSI: 41.0 | MACD: -2.69 | ATR: 4.39
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 10:59] O:7153.25 H:7154.75 L:7150.25 C:7153.50 V:4543.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7153.75 🔻 7149.00
+  📡 RSI: 34.5 | MACD: -2.56 | ATR: 4.43
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:00] O:7153.75 H:7154.75 L:7152.25 C:7153.50 V:3660.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7154.75 🔻 7150.25
+  📡 RSI: 35.2 | MACD: -2.42 | ATR: 4.50
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:01] O:7153.75 H:7156.75 L:7153.00 C:7156.25 V:2459.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7154.75 🔻 7152.25
+  📡 RSI: 41.2 | MACD: -2.07 | ATR: 4.64
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:02] O:7156.50 H:7157.50 L:7155.25 C:7156.75 V:2604.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7156.75 🔻 7153.00
+  📡 RSI: 42.9 | MACD: -1.72 | ATR: 4.71
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:03] O:7156.75 H:7157.25 L:7155.00 C:7156.50 V:1672.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.50 🔻 7155.25
+  📡 RSI: 40.5 | MACD: -1.46 | ATR: 4.71
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:04] O:7156.50 H:7158.00 L:7156.25 C:7157.75 V:1835.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7157.25 🔻 7155.00
+  📡 RSI: 41.0 | MACD: -1.13 | ATR: 4.71
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:05] O:7157.75 H:7158.25 L:7156.25 C:7157.75 V:1768.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7158.00 🔻 7156.25
+  📡 RSI: 46.6 | MACD: -0.86 | ATR: 4.18
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:06] O:7157.50 H:7159.75 L:7157.25 C:7158.00 V:2517.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7158.25 🔻 7156.25
+  📡 RSI: 51.0 | MACD: -0.63 | ATR: 3.84
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:07] O:7158.00 H:7159.25 L:7155.50 C:7159.00 V:2044.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7159.75 🔻 7157.25
+  📡 RSI: 75.7 | MACD: -0.35 | ATR: 3.48
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:08] O:7158.75 H:7160.00 L:7158.75 C:7159.25 V:1561.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7159.25 🔻 7155.50
+  📡 RSI: 81.8 | MACD: -0.11 | ATR: 3.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:09] O:7159.25 H:7160.25 L:7157.25 C:7158.00 V:1411.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7160.00 🔻 7158.75
+  📡 RSI: 70.7 | MACD: -0.02 | ATR: 2.95
+  📊 Filled: 0 | Pending: 0
+  📤 Limit SELL 10 @ 7158.00 submitted (ID: 208)
+  ⬇️ SHORT ORDER @ 7158.00 | Size: 1.00 | SL: 7166.50 | TP: 7145.00 [10cts]
+     Reason: Grid Short (strong_bearish, RSI: 70.7)
+     ⏳ Order 208 PENDING - awaiting fill confirmation
+  💰 Daily P&L: $+0.00
+  📋 Order 208 status: Submitted
+  ✅ Fill: SLD 8.0 @ 7158.0
+  📋 Order 208 status: Submitted
+  ✅ Fill: SLD 2.0 @ 7158.0
+  📋 Order 208 status: Filled
+  📤 Stop BUY 10 @ 7166.00 submitted (ID: 209)
+  📋 Order 209 status: PreSubmitted
+  📤 Limit BUY 10 @ 7146.00 submitted (ID: 210)
+  📋 Order 210 status: Submitted
+  ✅ FILL CONFIRMED: SHORT @ 7158.00 (order 208)
+     📊 Bracket placed: SL #209 @ 7166.00 | TP #210 @ 7146.00
+     Trail activates @ +6.0 pts
+
+[2026-04-29 11:10] O:7158.00 H:7160.50 L:7157.00 C:7160.00 V:1662.0
+  📈 Trend: strong_bearish (raw: moderate_bullish)
+  🗺️  Grid: 0.080% | 🔺 7160.25 🔻 7157.25
+  📡 RSI: 87.5 | MACD: 0.21 | ATR: 2.89
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $-1,000.00 | +6.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:11] O:7159.75 H:7160.75 L:7158.00 C:7158.25 V:1615.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7160.50 🔻 7157.00
+  📡 RSI: 79.0 | MACD: 0.24 | ATR: 2.89
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $-125.00 | +5.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:12] O:7158.25 H:7158.50 L:7156.75 C:7158.50 V:1588.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7160.75 🔻 7158.00
+  📡 RSI: 71.7 | MACD: 0.29 | ATR: 2.68
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $-250.00 | +5.0 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:13] O:7158.50 H:7158.75 L:7157.25 C:7157.50 V:1388.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7158.50 🔻 7156.75
+  📡 RSI: 66.0 | MACD: 0.24 | ATR: 2.46
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+250.00 | +4.8 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:14] O:7157.25 H:7157.25 L:7155.50 C:7155.75 V:1764.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7158.75 🔻 7157.25
+  📡 RSI: 57.9 | MACD: 0.07 | ATR: 2.43
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+1,125.00 | +4.8 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:15] O:7155.75 H:7158.75 L:7155.25 C:7157.50 V:1911.0
+  📈 Trend: moderate_bullish
+  🗺️  Grid: 0.080% | 🔺 7157.25 🔻 7155.50
+  📡 RSI: 54.7 | MACD: 0.06 | ATR: 2.41
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+250.00 | +3.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:16] O:7157.25 H:7158.00 L:7156.25 C:7156.25 V:1281.0
+  📈 Trend: moderate_bullish (raw: moderate_bearish)
+  🗺️  Grid: 0.080% | 🔺 7158.75 🔻 7155.25
+  📡 RSI: 48.2 | MACD: -0.04 | ATR: 2.38
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+875.00 | +3.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:17] O:7156.25 H:7156.25 L:7154.50 C:7154.75 V:1507.0
+  📈 Trend: moderate_bullish (raw: strong_bearish)
+  🗺️  Grid: 0.080% | 🔺 7158.00 🔻 7156.25
+  📡 RSI: 44.3 | MACD: -0.24 | ATR: 2.34
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+1,625.00 | +3.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:18] O:7154.75 H:7155.25 L:7152.75 C:7153.75 V:1909.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7156.25 🔻 7154.50
+  📡 RSI: 36.7 | MACD: -0.47 | ATR: 2.39
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+2,125.00 | +2.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-04-29 11:19] O:7154.00 H:7154.50 L:7151.50 C:7152.25 V:1822.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7155.25 🔻 7152.75
+  📡 RSI: 33.3 | MACD: -0.76 | ATR: 2.46
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | SL: 7166.00 | TP: 7146.00 | P&L: $+2,875.00 | +0.8 to trail
+  ✏️ Stop order 209 modified → 7152.00 [confirmed]
+  🔄 TRAILING ACTIVATED @ +6.50pts | Stop: 7166.00 → 7152.00
+  💰 Daily P&L: $+0.00
+  ✅ Fill: BOT 6.0 @ 7152.25
+  📋 Order 209 status: PreSubmitted
+  📋 Order 209 status: Submitted
+  ✅ Fill: BOT 4.0 @ 7159.25
+  📋 Order 209 status: Filled
+
+[2026-04-29 11:20] O:7152.25 H:7155.00 L:7151.75 C:7154.25 V:1789.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7154.50 🔻 7151.50
+  📡 RSI: 39.7 | MACD: -0.83 | ATR: 2.52
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7158.00 | Trail: 7152.00 | TP: 7146.00 | P&L: $+1,875.00 | 🔒 Trailing
+  📋 Order 210 status: PendingCancel
+  📋 Order 210 status: Cancelled
+  ✅ EXIT SHORT @ 7155.05 | Trailing Stop
+     P&L: +2.95 pts ($+1,475.00) | Daily: $+1,475.00
+  ⏸️ Cooldown: 2 bar(s) remaining after exit
+  💰 Daily P&L: $+1,475.00
+
+[2026-04-29 11:21] O:7154.25 H:7155.50 L:7153.00 C:7153.00 V:1611.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7155.00 🔻 7151.75
+  📡 RSI: 33.8 | MACD: -0.97 | ATR: 2.43
+  📊 Filled: 0 | Pending: 0
+  ⏸️ Cooldown: 1 bar(s) remaining after exit
+  💰 Daily P&L: $+1,475.00
+
+[2026-04-29 11:22] O:7153.25 H:7153.75 L:7152.50 C:7152.50 V:1132.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7155.50 🔻 7153.00
+  📡 RSI: 32.0 | MACD: -1.11 | ATR: 2.43
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+1,475.00
+
+[2026-04-29 11:23] O:7152.50 H:7155.00 L:7152.50 C:7154.75 V:1244.0
+  📈 Trend: strong_bearish
+  🗺️  Grid: 0.080% | 🔺 7153.75 🔻 7152.50
+  📡 RSI: 41.8 | MACD: -1.03 | ATR: 2.39
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+1,475.00
+→ Real-time bars cancelled
+✓ Disconnected from IBKR

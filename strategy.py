@@ -467,9 +467,16 @@ class GridStrategy:
                 # Use actual filled quantity for bracket orders
                 filled_qty = int(trade.orderStatus.filled)
 
-                # === NATIVE IB STOP ORDER ===
+                # === NATIVE IB STOP-LIMIT ORDER (prevents catastrophic slippage) ===
+                # For long exits (SELL): limit = stop - offset (floor on how bad fill can be)
+                # For short exits (BUY): limit = stop + offset (ceiling on how bad fill can be)
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
-                stop_trade = await self.broker.place_stop_order(stop_action, filled_qty, stop_loss)
+                offset = self.config.stop_limit_offset_pts
+                if pending.side == 'long':
+                    stop_limit_price = self._round_to_tick(stop_loss - offset)
+                else:
+                    stop_limit_price = self._round_to_tick(stop_loss + offset)
+                stop_trade = await self.broker.place_stop_limit_order(stop_action, filled_qty, stop_loss, stop_limit_price)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 
                 # === NATIVE IB TAKE PROFIT ORDER ===
