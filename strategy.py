@@ -50,12 +50,6 @@ class GridStrategy:
         self.daily_pnl: float = 0.0
         self.last_reset_day: Optional[int] = None
         self.prev_rsi: float = 50.0
-
-        # --- MACD MOMENTUM FILTER ---
-        # Stores the MACD value from the previous bar so we can check
-        # whether MACD is rising or falling when an entry signal fires.
-        self._prev_macd: float = 0.0
-
         self.bars_since_exit: int = 999  # Starts high so first entry is always allowed
 
         # Session low tracking for scalp_robust short filter
@@ -233,24 +227,36 @@ class GridStrategy:
         return self.config.contracts_per_trade
 
     # -------------------------------------------------------------------------
-    # MACD MOMENTUM FILTER
+    # 5M BAR SEEDING FROM HISTORICAL DATA
     # -------------------------------------------------------------------------
-    def _macd_momentum_ok(self, direction: str) -> bool:
-        """Returns True if MACD is moving in the same direction as the trade.
-
-        For a LONG: we want MACD rising (current >= previous).
-        For a SHORT: we want MACD falling (current <= previous).
-
-        Flat (current == previous) is treated as a pass — blocking on zero
-        change is too strict and essentially never happens with floating point
-        EMA calculations anyway.
+    def seed_5m_bars(self, historical_bars: List[Dict]):
+        """Build 5m bars from historical 1m bars for indicator warmup.
+        Call once after historical warmup completes in main.py.
+        Fixes current_trend_5m being stuck on SIDEWAYS all session.
         """
-        current_macd = self.indicators.cache.get('macd', {}).get('macd', 0.0)
-        if direction == 'long':
-            return current_macd >= self._prev_macd
-        elif direction == 'short':
-            return current_macd <= self._prev_macd
-        return True
+        buffer = []
+        for bar in historical_bars:
+            buffer.append(bar)
+            if len(buffer) >= 5:
+                bar_5m = {
+                    'time': buffer[0]['time'],
+                    'open': buffer[0]['open'],
+                    'high': max(b['high'] for b in buffer),
+                    'low': min(b['low'] for b in buffer),
+                    'close': buffer[-1]['close'],
+                    'volume': sum(b['volume'] for b in buffer)
+                }
+                self.bars_5m.append(bar_5m)
+                buffer = []
+        # Keep leftover bars as starting buffer for live aggregation
+        self._5m_bar_buffer = buffer
+        if self.indicators_5m.calculate_all(self.bars_5m):
+            self.current_trend_5m = self._determine_trend_5m()
+        else:
+            self.current_trend_5m = TrendState.SIDEWAYS
+        print(f"  📊 5m warmup: {len(self.bars_5m)} bars built | "
+              f"trend: {self.current_trend_5m.value} | "
+              f"buffer: {len(self._5m_bar_buffer)} bar(s) carried over")
 
     async def _check_entries_scalp(self, bar: Dict):
         total_orders = self.position_count + len(self.pending_orders)
@@ -293,8 +299,6 @@ class GridStrategy:
         current_price = bar['close']
         prev_bar = self.bars[-2]
 
-        current_macd = self.indicators.cache.get('macd', {}).get('macd', 0.0)
-
         # scalp_robust: block shorts taken within session_low_short_buffer pts of session low
         # during the first session_low_short_hours hours of trading
         def _short_blocked_by_session_low() -> bool:
@@ -317,36 +321,19 @@ class GridStrategy:
             if rsi > self.config.entry_rsi_bearish:
                 if current_price < prev_bar['low']:
                     if not _short_blocked_by_session_low():
-                        # MACD MOMENTUM FILTER: require MACD falling for shorts
-                        if not self._macd_momentum_ok('short'):
-                            print(f"  ⏭️ MACD filter blocked SHORT | MACD: {current_macd:.2f} vs prev {self._prev_macd:.2f}")
-                            return
                         await self._enter_short(current_price, rsi, trend)
         elif trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
             if rsi < self.config.entry_rsi_bullish:
                 if current_price > prev_bar['high']:
-                    # MACD MOMENTUM FILTER: require MACD rising for longs
-                    if not self._macd_momentum_ok('long'):
-                        print(f"  ⏭️ MACD filter blocked LONG | MACD: {current_macd:.2f} vs prev {self._prev_macd:.2f}")
-                        return
                     await self._enter_long(current_price, rsi, trend)
         elif trend == TrendState.SIDEWAYS:
             if rsi > self.config.entry_rsi_sideways_short:
                 if current_price < prev_bar['low']:
                     if not _short_blocked_by_session_low():
-                        # MACD MOMENTUM FILTER: require MACD falling for shorts
-                        if not self._macd_momentum_ok('short'):
-                            print(f"  ⏭️ MACD filter blocked SHORT (sideways) | MACD: {current_macd:.2f} vs prev {self._prev_macd:.2f}")
-                            return
                         await self._enter_short(current_price, rsi, trend)
             elif rsi < self.config.entry_rsi_sideways_long:
                 if current_price > prev_bar['high']:
-                    # MACD MOMENTUM FILTER: require MACD rising for longs
-                    if not self._macd_momentum_ok('long'):
-                        print(f"  ⏭️ MACD filter blocked LONG (sideways) | MACD: {current_macd:.2f} vs prev {self._prev_macd:.2f}")
-                        return
                     await self._enter_long(current_price, rsi, trend)
-
         if self.config.use_trend_follow_entry and self.position_count == 0 and not self.pending_orders:
             macd = self.indicators.cache.get('macd', {}).get('macd', 0)
             rsi_rising = rsi > self.prev_rsi
@@ -509,8 +496,10 @@ class GridStrategy:
                         stop_loss = self._round_to_tick(fill_price + self.config.stop_loss_pts)
                         take_profit = self._round_to_tick(fill_price - self.config.take_profit_pts)
 
+                # Use actual filled quantity for bracket orders
                 filled_qty = int(trade.orderStatus.filled)
 
+                # === NATIVE IB STOP-LIMIT ORDER (prevents catastrophic slippage) ===
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
                 offset = self.config.stop_limit_offset_pts
                 if pending.side == 'long':
@@ -520,6 +509,7 @@ class GridStrategy:
                 stop_trade = await self.broker.place_stop_limit_order(stop_action, filled_qty, stop_loss, stop_limit_price)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 
+                # === NATIVE IB TAKE PROFIT ORDER ===
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
                 tp_trade = await self.broker.place_limit_order(tp_action, filled_qty, take_profit)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
@@ -742,16 +732,12 @@ class GridStrategy:
             return
         self.previous_trend = self.confirmed_trend
         self.prev_rsi = self.indicators.cache.get('rsi', 50)
-
-        # --- MACD MOMENTUM FILTER: snapshot previous bar's MACD before updating ---
-        # This must happen BEFORE bars_since_exit increments and entries are checked,
-        # but AFTER indicators have been calculated for the current bar.
-        # We store the current bar's MACD now; it becomes "previous" on the next bar.
-        self._prev_macd = self.indicators.cache.get('macd', {}).get('macd', 0.0)
-
         self.bars_since_exit += 1
         self.current_trend = self._determine_trend()
         self._get_confirmed_trend()
+
+        # 5M BAR AGGREGATION (live bars only)
+        # seed_5m_bars() handles historical warmup — this only processes live bars.
         if self.config.use_5m_filter:
             self._5m_bar_buffer.append(bar)
             if len(self._5m_bar_buffer) >= 5:
@@ -767,6 +753,7 @@ class GridStrategy:
                 self._5m_bar_buffer = []
                 if self.indicators_5m.calculate_all(self.bars_5m):
                     self.current_trend_5m = self._determine_trend_5m()
+
         if self.config.use_grid_entry:
             if self.grid_levels and self.grid_anchor_price:
                 await self._check_entries(bar)
