@@ -36,15 +36,6 @@ MODE_DESCRIPTIONS = {
             "• Best for: High-quality morning session trades",
         ]
     },
-    "grid": {
-        "label": "📊 MODE: GRID",
-        "notes": [
-            "• {contracts} contract(s) max",
-            "• No trailing stop",
-            "• SL: ~28 pts | TP: ~17 pts",
-            "• Best for: Ranging markets, mean reversion",
-        ]
-    },
 }
 
 

@@ -242,32 +242,6 @@ def get_scalp_config() -> StrategyConfig:
     )
 
 
-def get_grid_config() -> StrategyConfig:
-    return StrategyConfig(
-        use_grid_entry=True,
-        max_positions=3,
-        base_grid_pct=0.12,
-        use_volatility_grid=True,
-        atr_multiplier=1.5,
-        max_anchor_distance_grids=3,
-        take_profit_pts=12.0,
-        use_trailing_stop=False,
-        max_loss_per_day_pct=2.0,
-        trend_confirmation_bars=3,
-        use_trend_reversal_exit=False,
-        # Grid mode uses only entry_rsi_bearish / entry_rsi_bullish (no tiering)
-        entry_rsi_bearish=60.0,
-        entry_rsi_bullish=40.0,   # Grid: RSI < 40 for longs (mean-reversion dip buy)
-        entry_rsi_sideways_short=70.0,
-        entry_rsi_sideways_long=30.0,
-        contracts_per_trade=3,
-        use_grid_stop=True,
-        grid_stop_buffer_pts=6.0,
-        atr_high_volatility_threshold=4.5,
-        contracts_per_trade_high_vol=5,
-    )
-
-
 def get_scalp_robust_config() -> StrategyConfig:
     return StrategyConfig(
         use_grid_entry=False,
@@ -315,5 +289,4 @@ def get_scalp_robust_config() -> StrategyConfig:
 CONFIG_PRESETS = {
     'scalp': get_scalp_config,
     'scalp_robust': get_scalp_robust_config,
-    'grid': get_grid_config,
 }
