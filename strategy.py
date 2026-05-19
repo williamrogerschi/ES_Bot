@@ -353,16 +353,11 @@ class GridStrategy:
                     if not _short_blocked_by_session_low():
                         await self._enter_short(current_price, rsi, trend)
 
-        elif trend == TrendState.STRONG_BULLISH:
-            # Lenient RSI floor: trend is confirmed, basic momentum check
-            if rsi > self.config.entry_rsi_strong_bullish:
-                if current_price > prev_bar['high']:
-                    if not _long_blocked_by_session_high():
-                        await self._enter_long(current_price, rsi, trend)
-
-        elif trend == TrendState.MODERATE_BULLISH:
-            # Stricter RSI floor: trend is weaker, require stronger momentum
-            if rsi > self.config.entry_rsi_bullish:
+        elif trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
+            # Dip-buy: enter on oversold pullback within bullish trend (original logic)
+            # Low RSI = the setup, not the warning. All winning longs in the sample
+            # fired at RSI 23-44 — tiering this higher deletes the entire long edge.
+            if rsi < self.config.entry_rsi_bullish:
                 if current_price > prev_bar['high']:
                     if not _long_blocked_by_session_high():
                         await self._enter_long(current_price, rsi, trend)
