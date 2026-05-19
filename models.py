@@ -37,6 +37,7 @@ class Position:
     trailing_activated: bool = False
     highest_price: Optional[float] = None  # For long positions
     lowest_price: Optional[float] = None   # For short positions
+    entry_atr: float = 0.0  # ATR at fill time, used for ATR-based trailing
 
 
 @dataclass
@@ -51,6 +52,7 @@ class PendingOrder:
     trailing_stop: Optional[float]
     submit_time: datetime
     grid_level: float
+    entry_atr: float = 0.0  # ATR captured at order submission, used for ATR-based SL/TP
 
 
 @dataclass
@@ -160,6 +162,14 @@ class StrategyConfig:
     atr_high_volatility_threshold: float = 4.5
     contracts_per_trade_high_vol: int = 5
 
+    # ATR-based R:R — when enabled, SL/TP/trail scale with entry ATR
+    # Replaces fixed stop_loss_pct / take_profit_pct / trailing_activation_pts in scalp mode
+    use_atr_rr: bool = False
+    stop_loss_atr_mult: float = 2.0        # SL = entry_atr × 2.0
+    take_profit_atr_mult: float = 3.0      # TP = entry_atr × 3.0
+    trailing_activation_atr_mult: float = 1.25  # trail activates at entry_atr × 1.25 profit
+    trailing_distance_atr_mult: float = 1.0     # trail follows at entry_atr × 1.0 from best price
+
     # Grid mode stop
     use_grid_stop: bool = False
     grid_stop_buffer_pts: float = 6.0
@@ -231,6 +241,11 @@ def get_scalp_config() -> StrategyConfig:
         contracts_per_trade=10,
         atr_high_volatility_threshold=4.5,
         contracts_per_trade_high_vol=5,
+        use_atr_rr=True,
+        stop_loss_atr_mult=2.0,
+        take_profit_atr_mult=3.0,
+        trailing_activation_atr_mult=1.25,
+        trailing_distance_atr_mult=1.0,
         use_session_filter=True,
         session_start_hour=8,
         session_start_minute=30,
@@ -239,6 +254,32 @@ def get_scalp_config() -> StrategyConfig:
         use_session_high_long_filter=True,
         session_high_long_buffer=10.0,
         session_high_long_hours=2.0,
+    )
+
+
+def get_grid_config() -> StrategyConfig:
+    return StrategyConfig(
+        use_grid_entry=True,
+        max_positions=3,
+        base_grid_pct=0.12,
+        use_volatility_grid=True,
+        atr_multiplier=1.5,
+        max_anchor_distance_grids=3,
+        take_profit_pts=12.0,
+        use_trailing_stop=False,
+        max_loss_per_day_pct=2.0,
+        trend_confirmation_bars=3,
+        use_trend_reversal_exit=False,
+        # Grid mode uses only entry_rsi_bearish / entry_rsi_bullish (no tiering)
+        entry_rsi_bearish=60.0,
+        entry_rsi_bullish=40.0,   # Grid: RSI < 40 for longs (mean-reversion dip buy)
+        entry_rsi_sideways_short=70.0,
+        entry_rsi_sideways_long=30.0,
+        contracts_per_trade=3,
+        use_grid_stop=True,
+        grid_stop_buffer_pts=6.0,
+        atr_high_volatility_threshold=4.5,
+        contracts_per_trade_high_vol=5,
     )
 
 
@@ -268,6 +309,11 @@ def get_scalp_robust_config() -> StrategyConfig:
         contracts_per_trade=10,
         atr_high_volatility_threshold=4.5,
         contracts_per_trade_high_vol=5,
+        use_atr_rr=True,
+        stop_loss_atr_mult=2.0,
+        take_profit_atr_mult=3.0,
+        trailing_activation_atr_mult=1.25,
+        trailing_distance_atr_mult=1.0,
         use_session_filter=False,
         session_start_hour=8,
         session_start_minute=30,
@@ -289,4 +335,5 @@ def get_scalp_robust_config() -> StrategyConfig:
 CONFIG_PRESETS = {
     'scalp': get_scalp_config,
     'scalp_robust': get_scalp_robust_config,
+    'grid': get_grid_config,
 }
