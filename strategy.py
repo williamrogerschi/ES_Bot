@@ -247,7 +247,6 @@ class GridStrategy:
         buffer = []
         for bar in historical_bars:
             self._update_30m(bar)          # build 30m structure during warmup
-            self._regime_recent_bars.append(bar)  # seed range position calc
             buffer.append(bar)
             if len(buffer) >= 5:
                 bar_5m = {
