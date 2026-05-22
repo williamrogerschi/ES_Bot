@@ -464,8 +464,7 @@ class GridStrategy:
         # REGIME DETECTION + ENTRY LOGIC
         # -------------------------------------------------------------------------
         atr = self.indicators.cache.get('atr', 0)
-        regime = self._detect_regime()
-        self._current_regime = regime
+        regime = self._current_regime
 
         if regime == MarketRegime.RANGING:
             # ---- RANGING MODE: pure mean reversion ----
@@ -943,6 +942,10 @@ class GridStrategy:
         self.current_trend = self._determine_trend()
         self._get_confirmed_trend()
 
+        # Update regime data and detect regime ONCE per bar before display
+        self._update_regime_data(bar)
+        self._current_regime = self._detect_regime()
+
         if self.config.use_5m_filter:
             self._5m_bar_buffer.append(bar)
             if len(self._5m_bar_buffer) >= 5:
@@ -1023,7 +1026,6 @@ class GridStrategy:
             if self.grid_levels and self.grid_anchor_price:
                 await self._check_entries(bar)
         else:
-            self._update_regime_data(bar)
             await self._check_entries_scalp(bar)
         if self.config.use_grid_entry and self.grid_levels:
             above = [f"{l:.2f}" for l in self.grid_levels if l > self.last_price][:3]
