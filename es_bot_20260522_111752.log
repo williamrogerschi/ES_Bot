@@ -1,0 +1,265 @@
+2026-05-22 11:45:05 | ERROR    | unhandled exception during asyncio.run() shutdown
+task: <Task finished name='Task-34' coro=<<async_generator_athrow without __name__>()> exception=ConnectionError('Not connected')>
+Traceback (most recent call last):
+  File "C:\Users\essel\Desktop\Coding\ES-Bot\broker.py", line 104, in stream_1m_bars
+    yield bar
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Python312\Lib\asyncio\tasks.py", line 316, in __step_run_and_handle_result
+    result = coro.throw(exc)
+             ^^^^^^^^^^^^^^^
+  File "C:\Users\essel\Desktop\Coding\ES-Bot\broker.py", line 107, in stream_1m_bars
+    self.ib.cancelRealTimeBars(self._rt_bars)
+  File "C:\Python312\Lib\site-packages\ib_insync\ib.py", line 1018, in cancelRealTimeBars
+    self.client.cancelRealTimeBars(bars.reqId)
+  File "C:\Python312\Lib\site-packages\ib_insync\client.py", line 791, in cancelRealTimeBars
+    self.send(51, 1, reqId)
+  File "C:\Python312\Lib\site-packages\ib_insync\client.py", line 238, in send
+    raise ConnectionError('Not connected')
+ConnectionError: Not connected
+Logging to: es_bot_20260522_111752.log
+
+============================================================
+📈 MODE: SCALP
+   • 10 contract(s) max
+   • Grid entries only
+   • Trailing stop enabled
+   • SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts
+   • Best for: Normal sessions, choppy/ranging opens
+============================================================
+✓ Connected to IBKR (paper) - clientId=10
+✓ Front-month contract: ESM6 expiry=20260618
+
+============================================================
+Loading historical data for indicator warm-up...
+============================================================
+→ Fetching historical bars (1 D, 1 min)...
+✓ Loaded 1038 historical bars
+
+Processing 1038 historical bars...
+
+Indicators ready!
+  Bars loaded: 1038
+  Last price: 7505.75
+  Trend: strong_bullish
+  RSI: 64.6
+  ATR: 2.25
+  MACD: 2.05 / Signal: 2.02
+  MA: 7503.07 / 7498.40 / 7496.84
+
+------------------------------------------------------------
+Account Value: $1,035,359.65
+Buying Power: $4,136,939.56
+Current Position: 0 contracts
+------------------------------------------------------------
+
+============================================================
+Starting live 1-minute bar stream...
+Strategy is now ACTIVE (SCALP mode)
+============================================================
+
+→ Subscribed to 5-second real-time bars (aggregating to 1 min)
+
+[2026-05-22 10:17] O:7506.00 H:7506.25 L:7505.50 C:7505.50 V:160.0
+  📈 Trend: sideways (raw: strong_bullish) | 🌍 Regime: uncertain
+  🗺️  Grid: 0.080% | 🔺 7506.50 🔻 7505.25
+  📡 RSI: 60.0 | MACD: 2.01 | ATR: 2.12
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:18] O:7505.75 H:7507.75 L:7505.50 C:7507.00 V:2143.0
+  📈 Trend: strong_bullish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7506.25 🔻 7505.50
+  📡 RSI: 57.1 | MACD: 2.08 | ATR: 2.07
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:19] O:7507.25 H:7509.25 L:7507.00 C:7508.75 V:2207.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7507.75 🔻 7505.50
+  📡 RSI: 70.9 | MACD: 2.25 | ATR: 2.02
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:20] O:7509.00 H:7509.25 L:7507.50 C:7508.75 V:2007.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7509.25 🔻 7507.00
+  📡 RSI: 70.4 | MACD: 2.35 | ATR: 2.02
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:21] O:7508.75 H:7509.25 L:7507.25 C:7508.25 V:1730.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7509.25 🔻 7507.50
+  📡 RSI: 74.5 | MACD: 2.37 | ATR: 2.02
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:22] O:7508.25 H:7509.00 L:7506.00 C:7506.25 V:1828.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7509.25 🔻 7507.25
+  📡 RSI: 55.3 | MACD: 2.20 | ATR: 1.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:23] O:7506.00 H:7507.00 L:7505.25 C:7506.75 V:1813.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7509.00 🔻 7506.00
+  📡 RSI: 60.9 | MACD: 2.08 | ATR: 1.93
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:24] O:7506.75 H:7507.75 L:7506.25 C:7507.00 V:1219.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7507.00 🔻 7505.25
+  📡 RSI: 72.5 | MACD: 1.98 | ATR: 1.82
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:25] O:7507.00 H:7508.50 L:7505.25 C:7508.50 V:2423.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7507.75 🔻 7506.25
+  📡 RSI: 74.4 | MACD: 2.00 | ATR: 1.89
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:26] O:7508.50 H:7510.50 L:7508.50 C:7509.50 V:2629.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7508.50 🔻 7505.25
+  📡 RSI: 74.4 | MACD: 2.07 | ATR: 1.95
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:27] O:7509.75 H:7511.25 L:7509.75 C:7511.00 V:1644.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7510.50 🔻 7508.50
+  📡 RSI: 76.6 | MACD: 2.22 | ATR: 1.95
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:28] O:7511.00 H:7512.25 L:7510.50 C:7511.50 V:2216.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7511.25 🔻 7509.75
+  📡 RSI: 77.1 | MACD: 2.36 | ATR: 1.91
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:29] O:7511.75 H:7513.75 L:7511.25 C:7513.50 V:2714.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.25 🔻 7510.50
+  📡 RSI: 79.2 | MACD: 2.60 | ATR: 1.98
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:30] O:7513.50 H:7514.25 L:7511.00 C:7514.00 V:4256.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7513.75 🔻 7511.25
+  📡 RSI: 80.0 | MACD: 2.79 | ATR: 2.12
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:31] O:7514.00 H:7515.25 L:7512.00 C:7512.00 V:3445.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7514.25 🔻 7511.00
+  📡 RSI: 71.0 | MACD: 2.76 | ATR: 2.30
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:32] O:7512.00 H:7512.25 L:7511.00 C:7511.75 V:2357.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7515.25 🔻 7512.00
+  📡 RSI: 66.7 | MACD: 2.68 | ATR: 2.23
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:33] O:7511.75 H:7512.50 L:7510.00 C:7510.00 V:1663.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.25 🔻 7511.00
+  📡 RSI: 54.4 | MACD: 2.44 | ATR: 2.25
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:34] O:7510.25 H:7512.00 L:7509.75 C:7510.75 V:1940.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.50 🔻 7510.00
+  📡 RSI: 56.7 | MACD: 2.29 | ATR: 2.29
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:35] O:7510.75 H:7512.50 L:7509.25 C:7512.50 V:2186.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.00 🔻 7509.75
+  📡 RSI: 63.1 | MACD: 2.29 | ATR: 2.38
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:36] O:7512.50 H:7513.50 L:7511.00 C:7512.75 V:2127.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.50 🔻 7509.25
+  📡 RSI: 72.4 | MACD: 2.28 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:37] O:7513.00 H:7513.50 L:7511.50 C:7511.50 V:1140.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7513.50 🔻 7511.00
+  📡 RSI: 65.6 | MACD: 2.14 | ATR: 2.36
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:38] O:7511.50 H:7512.25 L:7511.00 C:7511.50 V:1146.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7513.50 🔻 7511.50
+  📡 RSI: 65.0 | MACD: 2.02 | ATR: 2.34
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:39] O:7511.75 H:7511.75 L:7510.25 C:7511.25 V:1523.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.25 🔻 7511.00
+  📡 RSI: 60.0 | MACD: 1.87 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:40] O:7511.25 H:7512.50 L:7510.50 C:7511.50 V:1354.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7511.75 🔻 7510.25
+  📡 RSI: 57.7 | MACD: 1.76 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:41] O:7511.75 H:7511.75 L:7509.00 C:7510.00 V:1509.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7512.50 🔻 7510.50
+  📡 RSI: 46.2 | MACD: 1.53 | ATR: 2.29
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:42] O:7510.00 H:7510.75 L:7509.50 C:7510.50 V:1157.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7511.75 🔻 7509.00
+  📡 RSI: 46.2 | MACD: 1.37 | ATR: 2.25
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-05-22 10:43] O:7510.50 H:7512.25 L:7510.25 C:7511.00 V:1202.0
+  📈 Trend: strong_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7510.75 🔻 7509.50
+  📡 RSI: 39.1 | MACD: 1.27 | ATR: 2.21
+  📊 Filled: 0 | Pending: 0
+  📤 Limit BUY 10 @ 7511.00 submitted (ID: 419)
+  📋 Order 419 status: Submitted
+  ⬆️ LONG ORDER @ 7511.00 | Size: 1.00 | SL: 7506.50 | TP: 7517.75 [10cts]
+     Reason: Grid Long (strong_bullish, RSI: 39.1)
+     ⏳ Order 419 PENDING - awaiting fill confirmation
+  💰 Daily P&L: $+0.00
+  ✅ Fill: BOT 1.0 @ 7511.0
+  📋 Order 419 status: Submitted
+  ✅ Fill: BOT 9.0 @ 7511.0
+  📋 Order 419 status: Filled
+
+Error: 'StrategyConfig' object has no attribute 'use_grid_stop'
+✓ Disconnected from IBKR
