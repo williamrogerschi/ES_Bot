@@ -62,10 +62,11 @@ class GridStrategy:
         self._session_high_date: Optional[int] = None
 
         # Market regime detection
-        self._regime_trend_history: deque = deque(maxlen=20)   # last 20 trend states
-        self._regime_macd_history: deque  = deque(maxlen=20)   # last 20 MACD values for zero-cross counting
-        self._regime_recent_bars: deque   = deque(maxlen=30)   # last 30 bars for range calc
-        self._current_regime: MarketRegime = MarketRegime.UNCERTAIN
+        self._regime_trend_history: deque     = deque(maxlen=20)  # raw trend per bar
+        self._regime_confirmed_history: deque = deque(maxlen=20)  # confirmed trend per bar
+        self._regime_macd_history: deque      = deque(maxlen=20)
+        self._regime_recent_bars: deque       = deque(maxlen=30)
+        self._current_regime: MarketRegime    = MarketRegime.UNCERTAIN
 
         # 30m bar aggregation — higher timeframe context for regime detection
         self._30m_closes: deque      = deque(maxlen=6)   # last 6 completed 30m closes
@@ -289,22 +290,26 @@ class GridStrategy:
     def _update_regime_data(self, bar: Dict):
         """Update rolling data used by regime detection each bar."""
         self._regime_trend_history.append(self.current_trend)
+        self._regime_confirmed_history.append(self.confirmed_trend)
         self._regime_macd_history.append(self.indicators.cache.get('macd', {}).get('macd', 0))
         self._regime_recent_bars.append(bar)
         self._update_30m(bar)
 
     def _detect_regime(self) -> MarketRegime:
         """
-        Classify market as RANGING or TRENDING using 4 signals.
+        Classify market as RANGING or TRENDING using 5 signals.
         RANGING if 2+ signals fire.
 
-        Signal 1 — Trend flip count: how many times the 1m trend changed
-                   direction in the last regime_lookback_bars bars.
-        Signal 2 — MACD zero-crossing count: how many times MACD crossed
-                   zero in the lookback window. Ranging markets oscillate;
-                   trending markets stay on one side.
+        Signal 1 — Trend flip count: direction changes in last N bars.
+        Signal 2 — MACD zero-crossing count: oscillating MACD = no momentum.
         Signal 3 — ATR compressed: ATR < regime_atr_threshold.
-        Signal 4 — Trend instability: current trend != confirmed trend.
+        Signal 4 — Trend instability count: how many of the last N bars had
+                   raw trend != confirmed trend. Binary current!=confirmed was
+                   too reactive — a single bar could flip the regime.
+        Signal 5 — 30m direction changes: higher timeframe indecision.
+
+        Minimum hold: once a regime is declared it stays for regime_min_hold_bars
+        bars before it can change. Prevents flickering on every 1m bar.
         """
         if not self.config.use_regime_detection:
             return MarketRegime.UNCERTAIN
@@ -321,7 +326,7 @@ class GridStrategy:
             if flips >= self.config.regime_flip_threshold:
                 ranging_signals += 1
 
-        # Signal 2: MACD zero-crossing count (stronger than flat MACD check)
+        # Signal 2: MACD zero-crossing count
         macd_hist = list(self._regime_macd_history)
         if len(macd_hist) >= 4:
             crosses = sum(
@@ -337,14 +342,16 @@ class GridStrategy:
         if 0 < atr < self.config.regime_atr_threshold:
             ranging_signals += 1
 
-        # Signal 4: trend instability — current != confirmed
-        if self.current_trend != self.confirmed_trend:
-            ranging_signals += 1
+        # Signal 4: trend instability count over lookback window
+        # Count how many bars had raw != confirmed — persistent divergence = ranging
+        raw_hist  = list(self._regime_trend_history)
+        conf_hist = list(self._regime_confirmed_history)
+        if len(raw_hist) >= 4 and len(conf_hist) >= 4:
+            instability = sum(1 for r, c in zip(raw_hist, conf_hist) if r != c)
+            if instability >= self.config.regime_flip_threshold:
+                ranging_signals += 1
 
         # Signal 5: 30m direction changes — higher timeframe indecision
-        # Count direction flips in last 4 completed 30m bars.
-        # A trending day has 30m bars all going same direction (0-1 flips).
-        # A ranging day reverses direction every 1-2 30m bars (2+ flips).
         dirs_30m = list(self._30m_directions)[-4:]
         if len(dirs_30m) >= 2:
             flips_30m = sum(1 for i in range(1, len(dirs_30m))
@@ -353,31 +360,36 @@ class GridStrategy:
                 ranging_signals += 1
 
         if ranging_signals >= 2:
-            return MarketRegime.RANGING
-
-        # Determine trending direction
-        if self.current_trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
-            return MarketRegime.TRENDING_BULLISH
+            new_regime = MarketRegime.RANGING
+        elif self.current_trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
+            new_regime = MarketRegime.TRENDING_BULLISH
         elif self.current_trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
-            return MarketRegime.TRENDING_BEARISH
-        return MarketRegime.UNCERTAIN
+            new_regime = MarketRegime.TRENDING_BEARISH
+        else:
+            new_regime = MarketRegime.UNCERTAIN
+
+        return new_regime
 
     def _get_range_position(self) -> Optional[float]:
         """
-        Returns price position within the recent range as 0.0-1.0.
-        0.0 = at range low, 1.0 = at range high.
-        Returns None if insufficient data.
+        Returns price position within the SESSION range as 0.0-1.0.
+        0.0 = at session low, 1.0 = at session high.
+
+        Uses session high/low instead of rolling 30-bar window.
+        The rolling window was corrupted by recent trend direction —
+        after a selloff, the 30-bar range would show price near the
+        'top' of that window even though it was near the session low.
+        Session high/low gives true context for the full day.
         """
-        bars = list(self._regime_recent_bars)
-        if len(bars) < 10:
+        if self._session_high == float('-inf') or self._session_low == float('inf'):
             return None
-        range_high = max(b['high'] for b in bars)
-        range_low = min(b['low'] for b in bars)
-        spread = range_high - range_low
-        if spread < 0.5:
+        spread = self._session_high - self._session_low
+        if spread < 2.0:
             return None
-        current_price = bars[-1]['close']
-        return (current_price - range_low) / spread
+        if not self.bars:
+            return None
+        current_price = self.bars[-1]['close']
+        return (current_price - self._session_low) / spread
 
     async def _check_entries_scalp(self, bar: Dict):
         total_orders = self.position_count + len(self.pending_orders)
@@ -475,14 +487,18 @@ class GridStrategy:
             print(f"  🔲 Regime: RANGING | Range pos: {range_pct:.0%} | RSI: {rsi:.1f}")
 
             if rsi > self.config.regime_ranging_rsi_short and range_pct > self.config.regime_range_pct_short:
-                if current_price < prev_bar['low']:
-                    if not _short_blocked_by_session_low():
-                        await self._enter_short(current_price, rsi, TrendState.SIDEWAYS)
+                if not _short_blocked_by_session_low():
+                    if self.current_trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
+                        print(f"  🚫 Raw trend blocks RANGING SHORT | raw: {self.current_trend.value}")
+                        return
+                    await self._enter_short(current_price, rsi, TrendState.SIDEWAYS)
 
             elif rsi < self.config.regime_ranging_rsi_long and range_pct < self.config.regime_range_pct_long:
-                if current_price > prev_bar['high']:
-                    if not _long_blocked_by_session_high():
-                        await self._enter_long(current_price, rsi, TrendState.SIDEWAYS)
+                if not _long_blocked_by_session_high():
+                    if self.current_trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
+                        print(f"  🚫 Raw trend blocks RANGING LONG | raw: {self.current_trend.value}")
+                        return
+                    await self._enter_long(current_price, rsi, TrendState.SIDEWAYS)
 
         else:
             # ---- TRENDING MODE: directional entries ----
@@ -695,9 +711,7 @@ class GridStrategy:
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
                 tp_trade = await self.broker.place_limit_order(tp_action, filled_qty, take_profit)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
-                trail_activation_pts = (pending.entry_atr * self.config.trailing_activation_atr_mult
-                                        if self.config.use_atr_rr and pending.entry_atr > 0
-                                        else self.config.trailing_activation_pts)
+                trail_activation_pts = self.config.trailing_activation_pts  # static
                 position = Position(
                     side=pending.side,
                     entry_price=fill_price,
@@ -782,12 +796,10 @@ class GridStrategy:
                 if position.highest_price is None or high > position.highest_price:
                     position.highest_price = high
                 profit_pts = position.highest_price - position.entry_price
-                trail_activation = (position.entry_atr * self.config.trailing_activation_atr_mult
-                                    if self.config.use_atr_rr and position.entry_atr > 0
-                                    else self.config.trailing_activation_pts)
-                trail_distance = (position.entry_atr * self.config.trailing_distance_atr_mult
-                                  if self.config.use_atr_rr and position.entry_atr > 0
-                                  else self.config.trailing_distance_pts)
+                # Trail uses static values — guarantees meaningful profit lock-in
+                # SL and TP remain ATR-based; trail is decoupled from use_atr_rr
+                trail_activation = self.config.trailing_activation_pts
+                trail_distance    = self.config.trailing_distance_pts
                 if not position.trailing_activated and profit_pts >= trail_activation:
                     new_stop = self._round_to_tick(position.entry_price + trail_distance)
                     if new_stop > position.stop_loss:
@@ -815,12 +827,9 @@ class GridStrategy:
                 if position.lowest_price is None or low < position.lowest_price:
                     position.lowest_price = low
                 profit_pts = position.entry_price - position.lowest_price
-                trail_activation = (position.entry_atr * self.config.trailing_activation_atr_mult
-                                    if self.config.use_atr_rr and position.entry_atr > 0
-                                    else self.config.trailing_activation_pts)
-                trail_distance = (position.entry_atr * self.config.trailing_distance_atr_mult
-                                  if self.config.use_atr_rr and position.entry_atr > 0
-                                  else self.config.trailing_distance_pts)
+                # Trail uses static values — guarantees meaningful profit lock-in
+                trail_activation = self.config.trailing_activation_pts
+                trail_distance    = self.config.trailing_distance_pts
                 if not position.trailing_activated and profit_pts >= trail_activation:
                     new_stop = self._round_to_tick(position.entry_price - trail_distance)
                     if new_stop < position.stop_loss:
@@ -1008,9 +1017,7 @@ class GridStrategy:
                 if pos.trailing_activated:
                     status += f" | 🔒 Trailing"
                 else:
-                    trail_activation = (pos.entry_atr * self.config.trailing_activation_atr_mult
-                                        if self.config.use_atr_rr and pos.entry_atr > 0
-                                        else self.config.trailing_activation_pts)
+                    trail_activation = self.config.trailing_activation_pts  # static
                     pts_to_activate = trail_activation - profit_pts
                     if pts_to_activate > 0:
                         status += f" | +{pts_to_activate:.1f} to trail"
