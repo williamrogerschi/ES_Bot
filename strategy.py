@@ -79,6 +79,7 @@ class GridStrategy:
         self.indicators_5m = Indicators(self.config)
         self.current_trend_5m: TrendState = TrendState.SIDEWAYS
         self._5m_bar_buffer: List[Dict] = []
+        self._prev_macd: float = 0.0  # for shadow robust-filter logging
 
     def _round_to_tick(self, price: float) -> float:
         return round(price / self.config.tick_size) * self.config.tick_size
@@ -612,6 +613,48 @@ class GridStrategy:
                 print(f"  🚀 Trend-follow SHORT [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
                 await self._enter_short(current_price, rsi, trend)
 
+    def _log_shadow_filters(self, direction: str, rsi: float, regime_mode: str):
+        """
+        SHADOW LOGGING: evaluate what the robust bot's extra filters WOULD decide
+        for this entry, without acting on them. Builds an evidence table over time
+        for whether the robust filters prevent losses or just prevent trades.
+        direction: 'long' or 'short'
+        regime_mode: 'trending' or 'ranging' (the robust bot applies filters differently)
+        """
+        results = []
+
+        # --- MACD momentum filter (robust applies this to ALL entries) ---
+        current_macd = self.indicators.cache.get('macd', {}).get('macd', 0.0)
+        macd_delta = current_macd - self._prev_macd
+        if direction == 'long':
+            macd_ok = current_macd >= self._prev_macd
+        else:
+            macd_ok = current_macd <= self._prev_macd
+        results.append(f"MACD={'PASS' if macd_ok else 'BLOCK'} ({current_macd:+.2f} vs {self._prev_macd:+.2f}, Δ{macd_delta:+.2f})")
+
+        # --- 5m trend filter (robust applies this in TRENDING mode only) ---
+        if regime_mode == 'trending':
+            def direction_of(t):
+                if t in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
+                    return 'bull'
+                elif t in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
+                    return 'bear'
+                return 'sideways'
+            d_1m = direction_of(self.confirmed_trend)
+            d_5m = direction_of(self.current_trend_5m)
+            if d_5m == 'sideways':
+                fivem_ok = True
+            else:
+                fivem_ok = (d_1m == d_5m)
+            results.append(f"5m={'PASS' if fivem_ok else 'BLOCK'} (1m={self.confirmed_trend.value}, 5m={self.current_trend_5m.value})")
+        else:
+            results.append("5m=N/A (ranging)")
+
+        blocks = [r for r in results if 'BLOCK' in r]
+        verdict = f"🟥 ROBUST WOULD BLOCK ({len(blocks)} filter{'s' if len(blocks) != 1 else ''})" if blocks else "🟩 ROBUST WOULD ALLOW"
+        print(f"  🔬 SHADOW [{direction} {regime_mode}]: {verdict}")
+        print(f"       {' | '.join(results)}")
+
     async def _enter_long(self, level: float, rsi: float, trend: TrendState):
         level = self._round_to_tick(level)
         size = self._calculate_position_size(level)
@@ -631,6 +674,8 @@ class GridStrategy:
         vol_note = f" [HIGH VOL ATR:{atr:.2f}→{contracts}cts]" if contracts < self.config.contracts_per_trade else f" [{contracts}cts]"
         print(f"  ⬆️ LONG ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}{vol_note}")
         print(f"     Reason: {reason}")
+        regime_mode = 'ranging' if trend == TrendState.SIDEWAYS else 'trending'
+        self._log_shadow_filters('long', rsi, regime_mode)
         print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
 
     async def _enter_short(self, level: float, rsi: float, trend: TrendState):
@@ -652,6 +697,8 @@ class GridStrategy:
         vol_note = f" [HIGH VOL ATR:{atr:.2f}→{contracts}cts]" if contracts < self.config.contracts_per_trade else f" [{contracts}cts]"
         print(f"  ⬇️ SHORT ORDER @ {level:.2f} | Size: {size:.2f} | SL: {stop_loss:.2f} | TP: {take_profit:.2f}{vol_note}")
         print(f"     Reason: {reason}")
+        regime_mode = 'ranging' if trend == TrendState.SIDEWAYS else 'trending'
+        self._log_shadow_filters('short', rsi, regime_mode)
         print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
 
     async def _check_pending_orders(self):
@@ -801,7 +848,8 @@ class GridStrategy:
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
                 if not position.trailing_activated and profit_pts >= trail_activation:
-                    new_stop = self._round_to_tick(position.entry_price + trail_distance)
+                    # Anchor to best price reached, not entry — captures profit already made
+                    new_stop = self._round_to_tick(position.highest_price - trail_distance)
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
                         confirmed = True
@@ -831,7 +879,8 @@ class GridStrategy:
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
                 if not position.trailing_activated and profit_pts >= trail_activation:
-                    new_stop = self._round_to_tick(position.entry_price - trail_distance)
+                    # Anchor to best price reached, not entry — captures profit already made
+                    new_stop = self._round_to_tick(position.lowest_price + trail_distance)
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
                         confirmed = True
@@ -1042,3 +1091,6 @@ class GridStrategy:
             else:
                 print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
         print(f"  💰 Daily P&L: ${self.daily_pnl:+,.2f}")
+
+        # Update prev MACD AFTER entry checks — shadow filter compares current vs prev bar
+        self._prev_macd = self.indicators.cache.get('macd', {}).get('macd', 0.0)
