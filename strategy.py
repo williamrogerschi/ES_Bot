@@ -747,16 +747,22 @@ class GridStrategy:
                         stop_loss = self._round_to_tick(fill_price + sl_pts)
                         take_profit = self._round_to_tick(fill_price - tp_pts)
                 filled_qty = int(trade.orderStatus.filled)
+                # OCA group ties SL and TP together: a fill on either leg cancels
+                # the other AT THE BROKER, atomically. Prevents the double-fill
+                # where a fast bar hits both stop and TP before the bot reconciles.
+                oca_group = f"exit_{order_id}_{int(datetime.now(UTC).timestamp())}"
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
                 offset = self.config.stop_limit_offset_pts
                 if pending.side == 'long':
                     stop_limit_price = self._round_to_tick(stop_loss - offset)
                 else:
                     stop_limit_price = self._round_to_tick(stop_loss + offset)
-                stop_trade = await self.broker.place_stop_limit_order(stop_action, filled_qty, stop_loss, stop_limit_price)
+                stop_trade = await self.broker.place_stop_limit_order(
+                    stop_action, filled_qty, stop_loss, stop_limit_price, oca_group=oca_group)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
-                tp_trade = await self.broker.place_limit_order(tp_action, filled_qty, take_profit)
+                tp_trade = await self.broker.place_limit_order(
+                    tp_action, filled_qty, take_profit, oca_group=oca_group)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
                 trail_activation_pts = self.config.trailing_activation_pts  # static
                 position = Position(
@@ -926,6 +932,27 @@ class GridStrategy:
                 self.positions.remove(position)
                 self.position_count = max(0, self.position_count - 1)
                 self.bars_since_exit = 0
+
+        # SAFETY NET: after processing exits, verify the broker's actual position
+        # matches what the bot expects. OCA should prevent double-fills, but if a
+        # bracket ever over-fills (e.g. partial-fill race), the bot could be left
+        # unexpectedly short/long without knowing. Detect and flatten immediately.
+        if positions_to_remove:
+            try:
+                actual = self.broker.get_position()
+                expected = sum(
+                    int(p.size) if p.side == 'long' else -int(p.size)
+                    for p in self.positions
+                )
+                if actual != expected:
+                    print(f"  ⚠️ POSITION MISMATCH after exit: broker={actual}, bot expects={expected}")
+                    stray = actual - expected
+                    if stray != 0:
+                        flat_action = 'SELL' if stray > 0 else 'BUY'
+                        print(f"  🛟 Flattening stray {stray} contract(s) with {flat_action} to restore expected exposure")
+                        await self.broker.place_market_order(flat_action, abs(stray))
+            except Exception as e:
+                print(f"  ⚠️ Position reconciliation check failed: {e}")
 
     def _should_exit_on_trend_reversal(self, position: Position) -> bool:
         trend = self.confirmed_trend

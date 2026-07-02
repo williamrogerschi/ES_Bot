@@ -131,14 +131,19 @@ class IBKRBroker:
         await asyncio.sleep(0.1)
         return trade
 
-    async def place_limit_order(self, action: str, quantity: int, limit_price: float) -> Optional[Trade]:
+    async def place_limit_order(self, action: str, quantity: int, limit_price: float,
+                                oca_group: str = None, oca_type: int = 1) -> Optional[Trade]:
         if not self.contract:
             raise RuntimeError("Contract not set")
         order = Order(action=action, orderType='LMT', totalQuantity=quantity,
                       lmtPrice=limit_price, tif='DAY', transmit=True)
+        if oca_group:
+            order.ocaGroup = oca_group
+            order.ocaType = oca_type  # 1 = cancel remaining with block on overfill
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
-        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId})")
+        oca_note = f" [OCA:{oca_group}]" if oca_group else ""
+        print(f"  📤 Limit {action} {quantity} @ {limit_price:.2f} submitted (ID: {order.orderId}){oca_note}")
         await asyncio.sleep(0.1)
         return trade
 
@@ -176,8 +181,10 @@ class IBKRBroker:
         return trade
 
     async def place_stop_limit_order(self, action: str, quantity: int,
-                                      stop_price: float, limit_price: float) -> Optional[Trade]:
-        """Place a stop-limit order (legacy — SL brackets now use place_stop_market_order)."""
+                                      stop_price: float, limit_price: float,
+                                      oca_group: str = None, oca_type: int = 1) -> Optional[Trade]:
+        """Place a stop-limit order. Pass oca_group to link with the TP leg so a
+        fill on either cancels the other at the broker (prevents double-fill)."""
         if not self.contract:
             raise RuntimeError("Contract not set")
         order = Order(
@@ -189,9 +196,13 @@ class IBKRBroker:
             tif='GTC',
             transmit=True
         )
+        if oca_group:
+            order.ocaGroup = oca_group
+            order.ocaType = oca_type
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
-        print(f"  📤 Stop-Limit {action} {quantity} @ stop:{stop_price:.2f} / lmt:{limit_price:.2f} submitted (ID: {order.orderId})")
+        oca_note = f" [OCA:{oca_group}]" if oca_group else ""
+        print(f"  📤 Stop-Limit {action} {quantity} @ stop:{stop_price:.2f} / lmt:{limit_price:.2f} submitted (ID: {order.orderId}){oca_note}")
         await asyncio.sleep(0.1)
         return trade
 
