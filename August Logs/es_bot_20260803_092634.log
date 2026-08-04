@@ -1,0 +1,1 @@
+2026-08-03 09:26:36 | ERROR    | Error 420, reqId 575: Invalid Real-time Query:No market data permissions for CME FUT, contract: Contract(secType='FUT', conId=649180671, symbol='ES', lastTradeDateOrContractMonth='20260918', multiplier='50', exchange='CME', currency='USD', localSymbol='ESU6', tradingClass='ES')
