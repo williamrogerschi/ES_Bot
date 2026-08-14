@@ -482,6 +482,10 @@ class GridStrategy:
             # ---- RANGING MODE: pure mean reversion ----
             # Short near range top when overbought, long near range bottom when oversold.
             # Ignores 1m trend states entirely — they're noise in a range.
+            # (Previously had a raw-trend veto here that contradicted this design —
+            # removed 2026-08-14, see diagnosis: 193 blocks vs 5 real entries in
+            # August alone, from a stale 1m trend label overriding a regime the
+            # bot itself had already correctly classified as ranging.)
             range_pct = self._get_range_position()
             if range_pct is None:
                 return
@@ -489,16 +493,10 @@ class GridStrategy:
 
             if rsi > self.config.regime_ranging_rsi_short and range_pct > self.config.regime_range_pct_short:
                 if not _short_blocked_by_session_low():
-                    if self.current_trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
-                        print(f"  🚫 Raw trend blocks RANGING SHORT | raw: {self.current_trend.value}")
-                        return
                     await self._enter_short(current_price, rsi, TrendState.SIDEWAYS)
 
             elif rsi < self.config.regime_ranging_rsi_long and range_pct < self.config.regime_range_pct_long:
                 if not _long_blocked_by_session_high():
-                    if self.current_trend in [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]:
-                        print(f"  🚫 Raw trend blocks RANGING LONG | raw: {self.current_trend.value}")
-                        return
                     await self._enter_long(current_price, rsi, TrendState.SIDEWAYS)
 
         else:
@@ -541,6 +539,40 @@ class GridStrategy:
                         await self._enter_long(current_price, rsi, trend)
 
 
+
+    async def _check_entries_pullback(self, bar: Dict):
+        """Trend pullback entries — no directional bias.
+
+        Waits for a countertrend RSI dip/bounce to start failing (turn back
+        toward the trend) before entering, instead of trend-following the
+        breakout blindly. See PULLBACK_STRATEGY_SPEC.md for the backtest
+        evidence behind this.
+        """
+        total_orders = self.position_count + len(self.pending_orders)
+        if total_orders >= self.config.max_positions:
+            return
+        if self.bars_since_exit < self.config.post_exit_cooldown_bars:
+            remaining = self.config.post_exit_cooldown_bars - self.bars_since_exit
+            print(f"  ⏸️ Cooldown: {remaining} bar(s) remaining after exit")
+            return
+        if len(self.bars) < 2:
+            return
+
+        trend = self.confirmed_trend
+        rsi = self.indicators.cache.get('rsi', 50)
+        rsi_prev = self.prev_rsi
+        current_price = bar['close']
+        dip_level = self.config.rsi_pullback_dip_level
+
+        bull_trends = [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]
+        bear_trends = [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]
+
+        if trend in bull_trends and rsi_prev < dip_level and rsi > rsi_prev:
+            print(f"  🟢 Pullback LONG | RSI {rsi_prev:.1f}→{rsi:.1f} turning up in {trend.value}")
+            await self._enter_long(current_price, rsi, trend)
+        elif trend in bear_trends and rsi_prev > (100 - dip_level) and rsi < rsi_prev:
+            print(f"  🔴 Pullback SHORT | RSI {rsi_prev:.1f}→{rsi:.1f} turning down in {trend.value}")
+            await self._enter_short(current_price, rsi, trend)
 
     async def _check_entries(self, bar: Dict):
         total_orders = self.position_count + len(self.pending_orders)
@@ -1107,6 +1139,8 @@ class GridStrategy:
         if self.config.use_grid_entry:
             if self.grid_levels and self.grid_anchor_price:
                 await self._check_entries(bar)
+        elif self.config.use_pullback_entry:
+            await self._check_entries_pullback(bar)
         else:
             await self._check_entries_scalp(bar)
         if self.config.use_grid_entry and self.grid_levels:
