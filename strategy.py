@@ -51,6 +51,7 @@ class GridStrategy:
         self.daily_pnl: float = 0.0
         self.last_reset_day: Optional[int] = None
         self.prev_rsi: float = 50.0
+        self._pullback_prev_rsi: float = 50.0
         self.bars_since_exit: int = 999
 
         # Session low tracking for short filter
@@ -480,12 +481,6 @@ class GridStrategy:
 
         if regime == MarketRegime.RANGING:
             # ---- RANGING MODE: pure mean reversion ----
-            # Short near range top when overbought, long near range bottom when oversold.
-            # Ignores 1m trend states entirely — they're noise in a range.
-            # (Previously had a raw-trend veto here that contradicted this design —
-            # removed 2026-08-14, see diagnosis: 193 blocks vs 5 real entries in
-            # August alone, from a stale 1m trend label overriding a regime the
-            # bot itself had already correctly classified as ranging.)
             range_pct = self._get_range_position()
             if range_pct is None:
                 return
@@ -504,7 +499,6 @@ class GridStrategy:
             if trend == TrendState.STRONG_BEARISH:
                 if rsi > self.config.entry_rsi_strong_bearish:
                     if current_price < prev_bar['low']:
-                        # Raw trend contradiction filter (mirrors robust bot)
                         if self.current_trend in [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]:
                             print(f"  🚫 Raw trend blocks SHORT | raw: {self.current_trend.value}")
                             return
@@ -560,19 +554,35 @@ class GridStrategy:
 
         trend = self.confirmed_trend
         rsi = self.indicators.cache.get('rsi', 50)
-        rsi_prev = self.prev_rsi
+        rsi_prev = self._pullback_prev_rsi
+        atr = self.indicators.cache.get('atr', 0)
         current_price = bar['close']
         dip_level = self.config.rsi_pullback_dip_level
+
+        if atr < self.config.min_atr_for_pullback_entry:
+            bull_trends = [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]
+            bear_trends = [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]
+            would_long = trend in bull_trends and rsi_prev < dip_level and rsi > rsi_prev
+            would_short = trend in bear_trends and rsi_prev > (100 - dip_level) and rsi < rsi_prev
+            if would_long or would_short:
+                side = 'LONG' if would_long else 'SHORT'
+                print(f"  🚫 ATR gate blocked {side} setup | RSI {rsi_prev:.1f}→{rsi:.1f} in {trend.value} | ATR {atr:.2f} < {self.config.min_atr_for_pullback_entry:.2f}")
+            self._pullback_prev_rsi = rsi
+            return
 
         bull_trends = [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH]
         bear_trends = [TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH]
 
         if trend in bull_trends and rsi_prev < dip_level and rsi > rsi_prev:
+            entry_price = current_price + self.config.pullback_entry_offset_pts
             print(f"  🟢 Pullback LONG | RSI {rsi_prev:.1f}→{rsi:.1f} turning up in {trend.value}")
-            await self._enter_long(current_price, rsi, trend)
+            await self._enter_long(entry_price, rsi, trend)
         elif trend in bear_trends and rsi_prev > (100 - dip_level) and rsi < rsi_prev:
+            entry_price = current_price - self.config.pullback_entry_offset_pts
             print(f"  🔴 Pullback SHORT | RSI {rsi_prev:.1f}→{rsi:.1f} turning down in {trend.value}")
-            await self._enter_short(current_price, rsi, trend)
+            await self._enter_short(entry_price, rsi, trend)
+
+        self._pullback_prev_rsi = rsi
 
     async def _check_entries(self, bar: Dict):
         total_orders = self.position_count + len(self.pending_orders)
@@ -630,19 +640,13 @@ class GridStrategy:
                         break
         if self.config.use_trend_follow_entry and self.position_count == 0 and not self.pending_orders:
             macd = self.indicators.cache.get('macd', {}).get('macd', 0)
-            rsi_rising = rsi > self.prev_rsi
-            rsi_falling = rsi < self.prev_rsi
             strong_long = trend == TrendState.STRONG_BULLISH
             strong_short = trend == TrendState.STRONG_BEARISH
-            moderate_long = (self.config.trend_follow_allow_moderate and trend == TrendState.MODERATE_BULLISH and current_price > self.grid_anchor_price and rsi_rising and macd > 0)
-            moderate_short = (self.config.trend_follow_allow_moderate and trend == TrendState.MODERATE_BEARISH and current_price < self.grid_anchor_price and rsi_falling and macd < 0)
-            if (strong_long or moderate_long) and rsi < self.config.trend_follow_rsi_long:
-                reason = "strong" if strong_long else "moderate+gates"
-                print(f"  🚀 Trend-follow LONG [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+            if strong_long and rsi < self.config.trend_follow_rsi_long:
+                print(f"  🚀 Trend-follow LONG [strong] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
                 await self._enter_long(current_price, rsi, trend)
-            elif (strong_short or moderate_short) and rsi > self.config.trend_follow_rsi_short:
-                reason = "strong" if strong_short else "moderate+gates"
-                print(f"  🚀 Trend-follow SHORT [{reason}] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
+            elif strong_short and rsi > self.config.trend_follow_rsi_short:
+                print(f"  🚀 Trend-follow SHORT [strong] | RSI: {rsi:.1f} | MACD: {macd:.2f}")
                 await self._enter_short(current_price, rsi, trend)
 
     def _log_shadow_filters(self, direction: str, rsi: float, regime_mode: str):
@@ -779,9 +783,6 @@ class GridStrategy:
                         stop_loss = self._round_to_tick(fill_price + sl_pts)
                         take_profit = self._round_to_tick(fill_price - tp_pts)
                 filled_qty = int(trade.orderStatus.filled)
-                # OCA group ties SL and TP together: a fill on either leg cancels
-                # the other AT THE BROKER, atomically. Prevents the double-fill
-                # where a fast bar hits both stop and TP before the bot reconciles.
                 oca_group = f"exit_{order_id}_{int(datetime.now(UTC).timestamp())}"
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
                 offset = self.config.stop_limit_offset_pts
@@ -796,6 +797,8 @@ class GridStrategy:
                 tp_trade = await self.broker.place_limit_order(
                     tp_action, filled_qty, take_profit, oca_group=oca_group)
                 tp_order_id = tp_trade.order.orderId if tp_trade else None
+                if stop_order_id and tp_order_id:
+                    self.broker.register_oca_pair(stop_order_id, tp_order_id)
                 trail_activation_pts = self.config.trailing_activation_pts  # static
                 position = Position(
                     side=pending.side,
@@ -881,12 +884,9 @@ class GridStrategy:
                 if position.highest_price is None or high > position.highest_price:
                     position.highest_price = high
                 profit_pts = position.highest_price - position.entry_price
-                # Trail uses static values — guarantees meaningful profit lock-in
-                # SL and TP remain ATR-based; trail is decoupled from use_atr_rr
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
                 if not position.trailing_activated and profit_pts >= trail_activation:
-                    # Anchor to best price reached, not entry — captures profit already made
                     new_stop = self._round_to_tick(position.highest_price - trail_distance)
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
@@ -913,11 +913,9 @@ class GridStrategy:
                 if position.lowest_price is None or low < position.lowest_price:
                     position.lowest_price = low
                 profit_pts = position.entry_price - position.lowest_price
-                # Trail uses static values — guarantees meaningful profit lock-in
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
                 if not position.trailing_activated and profit_pts >= trail_activation:
-                    # Anchor to best price reached, not entry — captures profit already made
                     new_stop = self._round_to_tick(position.lowest_price + trail_distance)
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
@@ -965,10 +963,6 @@ class GridStrategy:
                 self.position_count = max(0, self.position_count - 1)
                 self.bars_since_exit = 0
 
-        # SAFETY NET: after processing exits, verify the broker's actual position
-        # matches what the bot expects. OCA should prevent double-fills, but if a
-        # bracket ever over-fills (e.g. partial-fill race), the bot could be left
-        # unexpectedly short/long without knowing. Detect and flatten immediately.
         if positions_to_remove:
             try:
                 actual = self.broker.get_position()
@@ -1058,7 +1052,6 @@ class GridStrategy:
         self.current_trend = self._determine_trend()
         self._get_confirmed_trend()
 
-        # Update regime data and detect regime ONCE per bar before display
         self._update_regime_data(bar)
         self._current_regime = self._detect_regime()
 
@@ -1125,7 +1118,7 @@ class GridStrategy:
                 if pos.trailing_activated:
                     status += f" | 🔒 Trailing"
                 else:
-                    trail_activation = self.config.trailing_activation_pts  # static
+                    trail_activation = self.config.trailing_activation_pts
                     pts_to_activate = trail_activation - profit_pts
                     if pts_to_activate > 0:
                         status += f" | +{pts_to_activate:.1f} to trail"
@@ -1153,5 +1146,4 @@ class GridStrategy:
                 print(f"  🧮 Grid ↑: {above}  Grid ↓: {below}")
         print(f"  💰 Daily P&L: ${self.daily_pnl:+,.2f}")
 
-        # Update prev MACD AFTER entry checks — shadow filter compares current vs prev bar
         self._prev_macd = self.indicators.cache.get('macd', {}).get('macd', 0.0)

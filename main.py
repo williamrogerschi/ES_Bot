@@ -8,10 +8,19 @@ from models import CONFIG_PRESETS
 from broker import IBKRBroker
 
 # =============================================================================
-# SELECT MODE: "scalp" | "scalp_robust" | "grid"
+# SELECT MODE: "scalp" | "scalp_robust" | "grid" | "pullback"
 # =============================================================================
 MODE = "scalp"
 # =============================================================================
+
+# Each mode gets its own IBKR client_id so more than one instance can run at
+# once without conflicting.
+CLIENT_IDS = {
+    "scalp": 10,
+    "scalp_robust": 11,
+    "grid": 12,
+    "pullback": 13,
+}
 
 MODE_DESCRIPTIONS = {
     "scalp": {
@@ -34,6 +43,17 @@ MODE_DESCRIPTIONS = {
             "• Session: 9:30-12:00 CT only",
             "• 5m trend must align with 1m direction",
             "• Best for: High-quality morning session trades",
+        ]
+    },
+    "pullback": {
+        "label": "🔁 MODE: TREND PULLBACK",
+        "notes": [
+            "• {contracts} contract(s) max",
+            "• No directional bias — longs and shorts, same logic",
+            "• Entry: RSI dip/bounce turning back toward the trend",
+            "• SL: 1.5x ATR | TP: 2.0x ATR | No trailing stop",
+            "• Backtested Apr-Jul: profitable 3 of 4 months, net +$67,842.50",
+            "• Not yet validated out-of-sample — shadow-log before trusting live",
         ]
     },
 }
@@ -106,7 +126,8 @@ async def main():
     print("="*60)
 
     try:
-        await broker.connect_async(host="127.0.0.1", port=7497, client_id=10)
+        client_id = CLIENT_IDS.get(MODE, 10)
+        await broker.connect_async(host="127.0.0.1", port=7497, client_id=client_id)
         await broker.get_front_month_contract_async()
 
         strategy = GridStrategy(broker=broker, config=config)

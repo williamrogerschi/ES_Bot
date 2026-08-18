@@ -23,6 +23,18 @@ class IBKRBroker:
         
         self._open_orders: Dict[int, Trade] = {}
         self._filled_orders: Dict[int, Trade] = {}
+        # Maps order_id -> sibling order_id for OCA-linked bracket legs (SL/TP pairs).
+        # Broker-side OCA cancellation isn't always atomic with the fill in paper
+        # trading — there's a race window where both legs can fill before IB's
+        # cancel propagates. This gives the bot its own event-driven backup:
+        # the instant either leg's fill status arrives, cancel the sibling
+        # immediately instead of waiting for the next bar's poll cycle.
+        self._oca_siblings: Dict[int, int] = {}
+
+    def register_oca_pair(self, order_id_a: int, order_id_b: int):
+        """Link two order IDs as OCA siblings for immediate event-driven cancellation."""
+        self._oca_siblings[order_id_a] = order_id_b
+        self._oca_siblings[order_id_b] = order_id_a
 
     async def connect_async(self, host="127.0.0.1", port=7497, client_id=10):
         await self.ib.connectAsync(host, port, clientId=client_id)
@@ -117,6 +129,22 @@ class IBKRBroker:
                 del self._open_orders[order_id]
             if status == 'Filled':
                 self._filled_orders[order_id] = trade
+                # Event-driven OCA backup: cancel the sibling leg immediately
+                # instead of waiting for the strategy's next-bar poll. Closes
+                # the race window where broker-side OCA hasn't yet cancelled
+                # the sibling before it also fills.
+                sibling_id = self._oca_siblings.pop(order_id, None)
+                if sibling_id is not None:
+                    self._oca_siblings.pop(sibling_id, None)
+                    for sib_trade in self.ib.trades():
+                        if sib_trade.order.orderId == sibling_id:
+                            if sib_trade.orderStatus.status not in ('Filled', 'Cancelled', 'ApiCancelled'):
+                                try:
+                                    self.ib.cancelOrder(sib_trade.order)
+                                    print(f"  🛡️ OCA backup: cancelling sibling order {sibling_id} immediately after {order_id} filled")
+                                except Exception as e:
+                                    print(f"  ⚠️ OCA backup cancel failed for {sibling_id}: {e}")
+                            break
 
     def _on_exec_details(self, trade: Trade, fill):
         print(f"  ✅ Fill: {fill.execution.side} {fill.execution.shares} @ {fill.execution.price}")

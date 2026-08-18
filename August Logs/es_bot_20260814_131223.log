@@ -1,0 +1,284 @@
+2026-08-14 13:38:05 | ERROR    | Error 10147, reqId 625: OrderId 625 that needs to be cancelled is not found.
+Logging to: es_bot_20260814_131223.log
+
+============================================================
+📈 MODE: SCALP
+   • 10 contract(s) max
+   • Grid entries only
+   • Trailing stop enabled
+   • SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts
+   • Best for: Normal sessions, choppy/ranging opens
+============================================================
+✓ Connected to IBKR (paper) - clientId=10
+✓ Front-month contract: ESU6 expiry=20260918
+
+============================================================
+Loading historical data for indicator warm-up...
+============================================================
+→ Fetching historical bars (1 D, 1 min)...
+✓ Loaded 1153 historical bars
+
+Processing 1153 historical bars...
+
+Indicators ready!
+  Bars loaded: 1153
+  Last price: 7802.50
+  Trend: moderate_bearish
+  RSI: 71.9
+  ATR: 1.55
+  MACD: -0.39 / Signal: -0.85
+  MA: 7800.77 / 7803.75 / 7809.85
+
+------------------------------------------------------------
+Account Value: $1,010,627.16
+Buying Power: $4,032,822.36
+Current Position: 0 contracts
+------------------------------------------------------------
+
+============================================================
+Starting live 1-minute bar stream...
+Strategy is now ACTIVE (SCALP mode)
+============================================================
+
+→ Subscribed to 5-second real-time bars (aggregating to 1 min)
+
+[2026-08-14 12:12] O:7802.50 H:7803.00 L:7802.25 C:7802.50 V:686.0
+  📈 Trend: sideways (raw: moderate_bearish) | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7802.75 🔻 7800.50
+  📡 RSI: 71.0 | MACD: -0.27 | ATR: 1.54
+  📊 Filled: 0 | Pending: 0
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:13] O:7802.75 H:7803.25 L:7801.75 C:7802.00 V:1099.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7803.00 🔻 7802.25
+  📡 RSI: 62.1 | MACD: -0.21 | ATR: 1.52
+  📊 Filled: 0 | Pending: 0
+  📤 Limit SELL 10 @ 7802.00 submitted (ID: 624)
+  📋 Order 624 status: Submitted
+  ⬇️ SHORT ORDER @ 7802.00 | Size: 1.00 | SL: 7805.00 | TP: 7797.50 [10cts]
+     Reason: Grid Short (moderate_bearish, RSI: 62.1)
+  🔬 SHADOW [short trending]: 🟥 ROBUST WOULD BLOCK (1 filter)
+       MACD=BLOCK (-0.21 vs -0.27, Δ+0.06) | 5m=PASS (1m=moderate_bearish, 5m=sideways)
+     ⏳ Order 624 PENDING - awaiting fill confirmation
+  💰 Daily P&L: $+0.00
+  ✅ Fill: SLD 2.0 @ 7802.0
+  📋 Order 624 status: Submitted
+  ✅ Fill: SLD 8.0 @ 7802.0
+  📋 Order 624 status: Filled
+  📤 Stop-Limit BUY 10 @ stop:7810.00 / lmt:7814.00 submitted (ID: 625) [OCA:exit_624_1786727705]
+  📋 Order 625 status: PreSubmitted
+  📤 Limit BUY 10 @ 7797.50 submitted (ID: 626) [OCA:exit_624_1786727705]
+  📋 Order 626 status: PreSubmitted
+  ✅ FILL CONFIRMED: SHORT @ 7802.00 (order 624)
+     📊 Bracket placed: SL #625 @ 7810.00 | TP #626 @ 7797.50
+     Trail activates @ +7.5 pts
+
+[2026-08-14 12:14] O:7801.75 H:7802.75 L:7801.75 C:7802.75 V:653.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7803.25 🔻 7801.75
+  📡 RSI: 65.6 | MACD: -0.10 | ATR: 1.50
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $-375.00 | +7.5 to trail
+  💰 Daily P&L: $+0.00
+  📋 Order 626 status: Submitted
+
+[2026-08-14 12:15] O:7802.75 H:7803.25 L:7802.50 C:7802.50 V:774.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7802.75 🔻 7801.75
+  📡 RSI: 77.8 | MACD: -0.03 | ATR: 1.41
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $-250.00 | +7.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:16] O:7802.50 H:7803.00 L:7800.00 C:7800.25 V:1417.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7803.25 🔻 7802.50
+  📡 RSI: 48.3 | MACD: -0.16 | ATR: 1.50
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+875.00 | +7.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:17] O:7800.25 H:7801.50 L:7800.25 C:7801.50 V:779.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7803.00 🔻 7800.00
+  📡 RSI: 57.6 | MACD: -0.16 | ATR: 1.52
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+250.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:18] O:7801.75 H:7802.50 L:7801.50 C:7802.00 V:609.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7801.50 🔻 7800.25
+  📡 RSI: 60.0 | MACD: -0.12 | ATR: 1.46
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+0.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:19] O:7802.00 H:7802.50 L:7801.25 C:7802.00 V:523.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7802.50 🔻 7801.50
+  📡 RSI: 60.0 | MACD: -0.08 | ATR: 1.48
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+0.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:20] O:7802.00 H:7802.50 L:7801.25 C:7802.25 V:739.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7802.50 🔻 7801.25
+  📡 RSI: 54.8 | MACD: -0.03 | ATR: 1.45
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $-125.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:21] O:7802.50 H:7802.75 L:7801.25 C:7801.75 V:655.0
+  📈 Trend: moderate_bearish | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7802.50 🔻 7801.25
+  📡 RSI: 51.5 | MACD: -0.03 | ATR: 1.46
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+125.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:22] O:7801.75 H:7803.75 L:7801.75 C:7802.75 V:811.0
+  📈 Trend: moderate_bearish (raw: moderate_bullish) | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7802.75 🔻 7801.25
+  📡 RSI: 60.0 | MACD: 0.05 | ATR: 1.54
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $-375.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:23] O:7802.50 H:7803.00 L:7802.00 C:7802.00 V:565.0
+  📈 Trend: moderate_bullish | 🌍 Regime: trending_bullish
+  🗺️  Grid: 0.080% | 🔺 7803.75 🔻 7801.75
+  📡 RSI: 54.1 | MACD: 0.05 | ATR: 1.54
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+0.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:24] O:7802.00 H:7802.50 L:7799.75 C:7800.75 V:1298.0
+  📈 Trend: moderate_bullish (raw: moderate_bearish) | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7803.00 🔻 7802.00
+  📡 RSI: 40.5 | MACD: -0.05 | ATR: 1.52
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+625.00 | +5.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:25] O:7800.50 H:7800.50 L:7799.00 C:7799.75 V:1339.0
+  📈 Trend: moderate_bullish (raw: strong_bearish) | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7802.50 🔻 7799.75
+  📡 RSI: 36.6 | MACD: -0.21 | ATR: 1.48
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+1,125.00 | +5.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:26] O:7799.75 H:7800.25 L:7798.75 C:7800.00 V:1616.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.50 🔻 7799.00
+  📡 RSI: 38.1 | MACD: -0.31 | ATR: 1.54
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+1,000.00 | +4.5 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:27] O:7800.25 H:7800.25 L:7799.50 C:7800.25 V:1040.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.25 🔻 7798.75
+  📡 RSI: 41.5 | MACD: -0.36 | ATR: 1.48
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+875.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:28] O:7800.25 H:7800.75 L:7799.75 C:7800.25 V:862.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.25 🔻 7799.50
+  📡 RSI: 36.8 | MACD: -0.40 | ATR: 1.48
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+875.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:29] O:7800.25 H:7800.50 L:7799.25 C:7799.75 V:943.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.75 🔻 7799.75
+  📡 RSI: 35.9 | MACD: -0.47 | ATR: 1.52
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+1,125.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:30] O:7800.00 H:7801.00 L:7799.75 C:7799.75 V:1491.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.50 🔻 7799.25
+  📡 RSI: 46.7 | MACD: -0.52 | ATR: 1.39
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+1,125.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:31] O:7800.00 H:7800.75 L:7799.50 C:7800.75 V:1528.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7801.00 🔻 7799.75
+  📡 RSI: 44.8 | MACD: -0.47 | ATR: 1.39
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+625.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:32] O:7800.50 H:7802.00 L:7800.25 C:7801.50 V:1364.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.75 🔻 7799.50
+  📡 RSI: 46.7 | MACD: -0.36 | ATR: 1.45
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+250.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:33] O:7801.50 H:7801.50 L:7800.25 C:7800.50 V:791.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7802.00 🔻 7800.25
+  📡 RSI: 41.2 | MACD: -0.36 | ATR: 1.45
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+750.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:34] O:7800.25 H:7800.75 L:7799.50 C:7800.50 V:625.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7801.50 🔻 7800.25
+  📡 RSI: 39.4 | MACD: -0.35 | ATR: 1.45
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+750.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:35] O:7800.25 H:7800.50 L:7799.50 C:7800.25 V:725.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.75 🔻 7799.50
+  📡 RSI: 40.6 | MACD: -0.36 | ATR: 1.41
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+875.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+
+[2026-08-14 12:36] O:7800.25 H:7800.50 L:7798.75 C:7799.25 V:702.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.50 🔻 7799.50
+  📡 RSI: 28.1 | MACD: -0.44 | ATR: 1.39
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+1,375.00 | +4.2 to trail
+  💰 Daily P&L: $+0.00
+  📋 Order 625 status: Cancelled
+  ✅ Fill: BOT 10.0 @ 7797.5
+  📋 Order 626 status: Filled
+
+[2026-08-14 12:37] O:7799.25 H:7799.25 L:7796.50 C:7797.25 V:2826.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7800.50 🔻 7798.75
+  📡 RSI: 24.3 | MACD: -0.66 | ATR: 1.52
+  📊 Filled: 1 | Pending: 0
+  📍 SHORT @ 7802.00 | SL: 7810.00 | TP: 7797.50 | P&L: $+2,375.00 | +4.2 to trail
+  ✅ EXIT SHORT @ 7797.50 | Take Profit
+     P&L: +4.50 pts ($+2,250.00) | Daily: $+2,250.00
+  ⏸️ Cooldown: 2 bar(s) remaining after exit
+  💰 Daily P&L: $+2,250.00
+
+[2026-08-14 12:38] O:7797.00 H:7797.50 L:7796.50 C:7797.25 V:2546.0
+  📈 Trend: strong_bearish | 🌍 Regime: ranging
+  🗺️  Grid: 0.080% | 🔺 7799.25 🔻 7796.50
+  📡 RSI: 28.1 | MACD: -0.83 | ATR: 1.39
+  📊 Filled: 0 | Pending: 0
+  ⏸️ Cooldown: 1 bar(s) remaining after exit
+  💰 Daily P&L: $+2,250.00
+→ Real-time bars cancelled
+✓ Disconnected from IBKR

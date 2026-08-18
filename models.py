@@ -109,6 +109,29 @@ class StrategyConfig:
     entry_rsi_bullish: float = 40.0          # all bullish longs (rsi < this)
     entry_rsi_sideways_short: float = 70.0
     entry_rsi_sideways_long: float = 30.0
+    use_pullback_entry: bool = False
+    rsi_pullback_dip_level: float = 38.0
+    # -------------------------------------------------------------------------
+    # min_atr_for_pullback_entry — lowered 2.5 -> 1.0 on 2026-08-17.
+    # August logs showed median session ATR ~1.5, with the 2.5 gate blocking
+    # ~92% of bars and killing 11 of 12 legitimate RSI-turn setups on 8/17
+    # before they could even become an order. Backtest replay of those 12
+    # setups (filled at signal price) came back 7W/5L, net +13.03 pts.
+    # 1.0 sits below the weakest of that day's setups (1.16 ATR) with some
+    # room, while still gating out truly dead bars (session floor was 0.54).
+    # Revisit if this lets through too much noise once live data comes in.
+    # -------------------------------------------------------------------------
+    min_atr_for_pullback_entry: float = 1.0
+    # -------------------------------------------------------------------------
+    # pullback_entry_offset_pts — added 2026-08-18.
+    # Pullback entries were submitted as a limit at the exact signal price,
+    # which only fills if price ticks back toward the signal bar first. On
+    # trending days (8/17, 8/18) that never happened and every signal timed
+    # out unfilled. Offsetting the limit through the market makes it
+    # marketable — fills near signal price instead of waiting for a
+    # retracement that a strong trend may not give.
+    # -------------------------------------------------------------------------
+    pullback_entry_offset_pts: float = 1.5
 
     # MA settings
     short_ma_length: int = 20
@@ -284,6 +307,33 @@ def get_scalp_config() -> StrategyConfig:
     )
 
 
+def get_pullback_config() -> StrategyConfig:
+    """No directional bias, both longs and shorts. Waits for a countertrend
+    RSI dip/bounce to fail (turn back toward the trend) before entering,
+    rather than trend-following the breakout blindly.
+
+    Backtested against April-July logs: profitable in 3 of 4 months, net
+    +$67,842.50 over 361 trades. See PULLBACK_STRATEGY_SPEC.md for the full
+    evidence. Not yet validated out-of-sample — shadow-log before trusting
+    this with real conviction.
+    """
+    return StrategyConfig(
+        use_grid_entry=False,
+        use_pullback_entry=True,
+        max_positions=1,
+        rsi_pullback_dip_level=38.0,
+        min_atr_for_pullback_entry=1.0,  # lowered from 2.5 on 2026-08-17, see note above
+        use_atr_rr=True,
+        stop_loss_atr_mult=1.5,
+        take_profit_atr_mult=2.0,
+        use_trailing_stop=False,
+        use_trend_reversal_exit=False,
+        contracts_per_trade=10,
+        contracts_per_trade_high_vol=5,
+        post_exit_cooldown_bars=2,
+    )
+
+
 def get_grid_config() -> StrategyConfig:
     return StrategyConfig(
         use_grid_entry=True,
@@ -365,4 +415,5 @@ CONFIG_PRESETS = {
     'scalp': get_scalp_config,
     'scalp_robust': get_scalp_robust_config,
     'grid': get_grid_config,
+    'pullback': get_pullback_config,
 }
