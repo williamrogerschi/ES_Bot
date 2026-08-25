@@ -14,6 +14,7 @@ from indicators import Indicators
 
 UTC = ZoneInfo("UTC")
 CENTRAL = ZoneInfo("America/Chicago")
+EASTERN = ZoneInfo("America/New_York")
 
 
 class GridStrategy:
@@ -773,6 +774,7 @@ class GridStrategy:
                         sl_pts = pending.entry_atr * self.config.stop_loss_atr_mult
                         sl_pts = max(sl_pts, self.config.min_stop_loss_pts)
                         tp_pts = pending.entry_atr * self.config.take_profit_atr_mult
+                        tp_pts = max(tp_pts, self.config.min_take_profit_pts)
                     else:
                         sl_pts = self.config.stop_loss_pts
                         tp_pts = self.config.take_profit_pts
@@ -785,13 +787,14 @@ class GridStrategy:
                 filled_qty = int(trade.orderStatus.filled)
                 oca_group = f"exit_{order_id}_{int(datetime.now(UTC).timestamp())}"
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
-                offset = self.config.stop_limit_offset_pts
-                if pending.side == 'long':
-                    stop_limit_price = self._round_to_tick(stop_loss - offset)
-                else:
-                    stop_limit_price = self._round_to_tick(stop_loss + offset)
-                stop_trade = await self.broker.place_stop_limit_order(
-                    stop_action, filled_qty, stop_loss, stop_limit_price, oca_group=oca_group)
+                # Stop-market, not stop-limit — 2026-08-19. A stop-limit order
+                # only fills within its limit price; if price gaps through the
+                # stop trigger by more than stop_limit_offset_pts, it's left
+                # open and unfilled while price keeps moving away (observed
+                # live). Stop-market has no limit — it triggers and takes
+                # whatever the market gives, which is what an SL is for.
+                stop_trade = await self.broker.place_stop_market_order(
+                    stop_action, filled_qty, stop_loss, oca_group=oca_group)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
                 tp_trade = await self.broker.place_limit_order(
@@ -844,6 +847,24 @@ class GridStrategy:
             return fallback
         return sum(f.execution.price * f.execution.shares for f in fills) / total_qty
 
+    async def _check_eod_close(self, bar: Dict):
+        """Force-flatten any open position once a bar crosses the configured
+        ET close time. Independent of SL/TP/max_holding_hours — this fires
+        regardless of how those are set, for trades that are simply grinding
+        without hitting either bracket."""
+        if not self.config.use_eod_close or not self.positions:
+            return
+        bar_et = bar['time'].astimezone(EASTERN)
+        close_reached = (bar_et.hour, bar_et.minute) >= (self.config.eod_close_hour_et, self.config.eod_close_minute_et)
+        if not close_reached:
+            return
+        for position in list(self.positions):
+            if position.stop_order_id:
+                await self.broker.cancel_order_by_id(position.stop_order_id)
+            if position.tp_order_id:
+                await self.broker.cancel_order_by_id(position.tp_order_id)
+            await self._close_position(position, bar['close'], "EOD Close")
+
     async def _check_exits(self, bar: Dict):
         high = bar['high']
         low = bar['low']
@@ -879,6 +900,30 @@ class GridStrategy:
                 print(f"  {emoji} EXIT {position.side.upper()} @ {exit_price:.2f} | {exit_reason}")
                 print(f"     P&L: {pnl_pts:+.2f} pts (${pnl_dollars:+,.2f}) | Daily: ${self.daily_pnl:+,.2f}")
                 positions_to_remove.append(position)
+                # -------------------------------------------------------------
+                # Own-bracket double-fill check — 2026-08-25. Replaces the old
+                # broker.get_position() reconciliation, which compared this
+                # bot's expected exposure against the ACCOUNT-WIDE position.
+                # IBKR reports positions per account, not per client
+                # connection — with two bots sharing an account and contract,
+                # that check couldn't tell "my extra fill" from "the other
+                # bot's legitimate position" and was firing corrective trades
+                # against trades that weren't even this bot's. This version
+                # only ever looks at this bot's own two order IDs (which it
+                # placed and knows), so it can never be confused by the other
+                # bot's activity.
+                # -------------------------------------------------------------
+                if order_to_cancel and order_to_cancel in self.broker._filled_orders:
+                    other_fill = self.broker._filled_orders.pop(order_to_cancel)
+                    other_price = self._weighted_avg_fill(
+                        other_fill.fills,
+                        position.take_profit if exit_reason != "Take Profit" else position.stop_loss
+                    )
+                    size = int(position.size)
+                    flatten_action = 'BUY' if position.side == 'long' else 'SELL'
+                    print(f"  ⚠️ OWN BRACKET DOUBLE-FILL: both SL #{position.stop_order_id} and TP #{position.tp_order_id} filled "
+                          f"(second fill @ {other_price:.2f}) — flattening {size} contract(s) with {flatten_action}")
+                    await self.broker.place_market_order(flatten_action, size)
                 continue
             if position.side == 'long':
                 if position.highest_price is None or high > position.highest_price:
@@ -886,7 +931,7 @@ class GridStrategy:
                 profit_pts = position.highest_price - position.entry_price
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
-                if not position.trailing_activated and profit_pts >= trail_activation:
+                if self.config.use_trailing_stop and not position.trailing_activated and profit_pts >= trail_activation:
                     new_stop = self._round_to_tick(position.highest_price - trail_distance)
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
@@ -900,7 +945,7 @@ class GridStrategy:
                             print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
                         else:
                             print(f"  ⚠️ Trail activation failed — IBKR did not confirm stop move. Will retry next bar.")
-                elif position.trailing_activated:
+                elif self.config.use_trailing_stop and position.trailing_activated:
                     new_stop = self._round_to_tick(position.highest_price - trail_distance)
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
@@ -915,7 +960,7 @@ class GridStrategy:
                 profit_pts = position.entry_price - position.lowest_price
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
-                if not position.trailing_activated and profit_pts >= trail_activation:
+                if self.config.use_trailing_stop and not position.trailing_activated and profit_pts >= trail_activation:
                     new_stop = self._round_to_tick(position.lowest_price + trail_distance)
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
@@ -929,7 +974,7 @@ class GridStrategy:
                             print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
                         else:
                             print(f"  ⚠️ Trail activation failed — IBKR did not confirm stop move. Will retry next bar.")
-                elif position.trailing_activated:
+                elif self.config.use_trailing_stop and position.trailing_activated:
                     new_stop = self._round_to_tick(position.lowest_price + trail_distance)
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
@@ -962,23 +1007,6 @@ class GridStrategy:
                 self.positions.remove(position)
                 self.position_count = max(0, self.position_count - 1)
                 self.bars_since_exit = 0
-
-        if positions_to_remove:
-            try:
-                actual = self.broker.get_position()
-                expected = sum(
-                    int(p.size) if p.side == 'long' else -int(p.size)
-                    for p in self.positions
-                )
-                if actual != expected:
-                    print(f"  ⚠️ POSITION MISMATCH after exit: broker={actual}, bot expects={expected}")
-                    stray = actual - expected
-                    if stray != 0:
-                        flat_action = 'SELL' if stray > 0 else 'BUY'
-                        print(f"  🛟 Flattening stray {stray} contract(s) with {flat_action} to restore expected exposure")
-                        await self.broker.place_market_order(flat_action, abs(stray))
-            except Exception as e:
-                print(f"  ⚠️ Position reconciliation check failed: {e}")
 
     def _should_exit_on_trend_reversal(self, position: Position) -> bool:
         trend = self.confirmed_trend
@@ -1129,6 +1157,7 @@ class GridStrategy:
                 await self._close_position(position, bar['close'], "Max Daily Loss")
             return
         await self._check_exits(bar)
+        await self._check_eod_close(bar)
         if self.config.use_grid_entry:
             if self.grid_levels and self.grid_anchor_price:
                 await self._check_entries(bar)
