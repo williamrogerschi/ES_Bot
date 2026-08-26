@@ -188,9 +188,11 @@ class IBKRBroker:
         return trade
 
     async def place_stop_market_order(self, action: str, quantity: int,
-                                       stop_price: float) -> Optional[Trade]:
+                                       stop_price: float, oca_group: str = None,
+                                       oca_type: int = 1) -> Optional[Trade]:
         """Stop-market order — triggers at stop_price, fills at market.
-        Used for SL brackets to avoid stop-limit partial fill slippage.
+        Used for SL brackets to avoid stop-limit orders getting stuck unfilled
+        when price gaps through the stop trigger by more than the limit offset.
         """
         if not self.contract:
             raise RuntimeError("Contract not set")
@@ -202,9 +204,13 @@ class IBKRBroker:
             tif='GTC',
             transmit=True
         )
+        if oca_group:
+            order.ocaGroup = oca_group
+            order.ocaType = oca_type
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
-        print(f"  📤 Stop-Market {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId})")
+        oca_note = f" [OCA:{oca_group}]" if oca_group else ""
+        print(f"  📤 Stop-Market {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId}){oca_note}")
         await asyncio.sleep(0.1)
         return trade
 

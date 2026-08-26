@@ -168,6 +168,16 @@ class StrategyConfig:
     time_based_exit: bool = True
     max_holding_hours: int = 4
 
+    # -------------------------------------------------------------------------
+    # EOD hard close — added 2026-08-20. Independent of max_holding_hours:
+    # a trade can sit well under the holding-hours cap and still be open past
+    # market close if it's just grinding sideways. This force-flattens any
+    # open position the instant a bar crosses the close time, no exceptions.
+    # -------------------------------------------------------------------------
+    use_eod_close: bool = False
+    eod_close_hour_et: int = 16     # 4:00 PM ET (RTH close)
+    eod_close_minute_et: int = 0
+
     # Position sizing
     use_risk_based_position: bool = False
     risk_per_trade_pct: float = 1.0
@@ -185,6 +195,12 @@ class StrategyConfig:
     trailing_activation_atr_mult: float = 1.25
     trailing_distance_atr_mult: float = 0.75
     min_stop_loss_pts: float = 8.0   # SL floor — prevents stop shrinking below viable level in low ATR
+    # TP floor — added 2026-08-18. Without this, low-ATR sessions hit the SL
+    # floor above but let TP shrink freely with ATR, flipping the intended
+    # stop_loss_atr_mult:take_profit_atr_mult ratio backwards (observed as
+    # low as 1:0.4 reward:risk on 8/18 pullback trades). 0.0 = no floor
+    # (default, unaffected unless a preset sets one).
+    min_take_profit_pts: float = 0.0
 
     atr_no_trade_threshold: float = 3.0  # don't enter if ATR below this (market too compressed)
 
@@ -323,14 +339,26 @@ def get_pullback_config() -> StrategyConfig:
         max_positions=1,
         rsi_pullback_dip_level=38.0,
         min_atr_for_pullback_entry=1.0,  # lowered from 2.5 on 2026-08-17, see note above
-        use_atr_rr=True,
-        stop_loss_atr_mult=1.5,
-        take_profit_atr_mult=2.0,
+        # -------------------------------------------------------------------
+        # SL/TP — switched from ATR-scaled to plain static on 2026-08-19.
+        # At recent ATR (median ~1.5-2.7), 1.5x/2.0x ATR always landed below
+        # the SL/TP floors anyway, so the floors were doing 100% of the work
+        # and the multipliers were dead weight — two mechanisms, only one
+        # ever active, easy to get out of sync (which is exactly what
+        # happened: TP floor got added but a stale file kept using the ATR
+        # formula). Static values remove the ambiguity entirely.
+        # -------------------------------------------------------------------
+        use_atr_rr=False,
+        stop_loss_pts=8.0,
+        take_profit_pts=10.75,  # 8.0 * (2.0/1.5), rounded to nearest ES tick — 1.33:1 R:R
         use_trailing_stop=False,
         use_trend_reversal_exit=False,
-        contracts_per_trade=10,
-        contracts_per_trade_high_vol=5,
+        contracts_per_trade=1,
+        contracts_per_trade_high_vol=1,  # 2026-08-18: pinned to 1 contract always — clean per-trade
+                                          # point data for gauging MES sizing later (multiply by 10)
         post_exit_cooldown_bars=2,
+        max_loss_per_day_pct=100.0,  # daily loss limit removed 2026-08-18 — paper trading, want losing trades to play out
+        use_eod_close=True,  # force-flatten any open position at 4:00 PM ET, added 2026-08-20
     )
 
 

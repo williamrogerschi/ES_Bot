@@ -1,0 +1,73 @@
+2026-08-26 09:08:05 | ERROR    | unhandled exception during asyncio.run() shutdown
+task: <Task finished name='Task-7' coro=<<async_generator_athrow without __name__>()> exception=ConnectionError('Not connected')>
+Traceback (most recent call last):
+  File "C:\Users\essel\Desktop\Coding\ES-Bot\broker.py", line 116, in stream_1m_bars
+    yield bar
+asyncio.exceptions.CancelledError
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Python312\Lib\asyncio\tasks.py", line 316, in __step_run_and_handle_result
+    result = coro.throw(exc)
+             ^^^^^^^^^^^^^^^
+  File "C:\Users\essel\Desktop\Coding\ES-Bot\broker.py", line 119, in stream_1m_bars
+    self.ib.cancelRealTimeBars(self._rt_bars)
+  File "C:\Python312\Lib\site-packages\ib_insync\ib.py", line 1018, in cancelRealTimeBars
+    self.client.cancelRealTimeBars(bars.reqId)
+  File "C:\Python312\Lib\site-packages\ib_insync\client.py", line 791, in cancelRealTimeBars
+    self.send(51, 1, reqId)
+  File "C:\Python312\Lib\site-packages\ib_insync\client.py", line 238, in send
+    raise ConnectionError('Not connected')
+ConnectionError: Not connected
+Logging to: es_bot_20260826_090756.log
+
+============================================================
+📈 MODE: SCALP
+   • 10 contract(s) max
+   • Grid entries only
+   • Trailing stop enabled
+   • SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts
+   • Best for: Normal sessions, choppy/ranging opens
+============================================================
+✓ Connected to IBKR (paper) - clientId=10
+✓ Front-month contract: ESU6 expiry=20260918
+
+============================================================
+Loading historical data for indicator warm-up...
+============================================================
+→ Fetching historical bars (1 D, 1 min)...
+✓ Loaded 908 historical bars
+
+Processing 908 historical bars...
+
+Indicators ready!
+  Bars loaded: 908
+  Last price: 7679.75
+  Trend: strong_bearish
+  RSI: 47.9
+  ATR: 2.14
+  MACD: -0.77 / Signal: -0.92
+  MA: 7681.01 / 7684.03 / 7686.47
+
+------------------------------------------------------------
+Account Value: $1,016,112.07
+Buying Power: $4,027,911.28
+Current Position: 0 contracts
+------------------------------------------------------------
+
+============================================================
+Starting live 1-minute bar stream...
+Strategy is now ACTIVE (SCALP mode)
+============================================================
+
+→ Subscribed to 5-second real-time bars (aggregating to 1 min)
+
+[2026-08-26 08:07] O:7679.75 H:7680.25 L:7679.75 C:7679.75 V:48.0
+  📈 Trend: sideways (raw: strong_bearish) | 🌍 Regime: trending_bearish
+  🗺️  Grid: 0.080% | 🔺 7680.50 🔻 7679.50
+  📡 RSI: 52.3 | MACD: -0.79 | ATR: 1.91
+  📊 Filled: 0 | Pending: 0
+
+Error: 'StrategyConfig' object has no attribute 'use_eod_close'
+✓ Disconnected from IBKR
