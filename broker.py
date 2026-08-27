@@ -138,7 +138,11 @@ class IBKRBroker:
                     self._oca_siblings.pop(sibling_id, None)
                     for sib_trade in self.ib.trades():
                         if sib_trade.order.orderId == sibling_id:
-                            if sib_trade.orderStatus.status not in ('Filled', 'Cancelled', 'ApiCancelled'):
+                            # Skip if already filled, already cancelled, or already
+                            # in the process of being cancelled (e.g. by IBKR's own
+                            # broker-side OCA beating us to it) — cancelling twice
+                            # produces harmless but noisy 10147/10148 errors.
+                            if sib_trade.orderStatus.status not in ('Filled', 'Cancelled', 'ApiCancelled', 'PendingCancel'):
                                 try:
                                     self.ib.cancelOrder(sib_trade.order)
                                     print(f"  🛡️ OCA backup: cancelling sibling order {sibling_id} immediately after {order_id} filled")
