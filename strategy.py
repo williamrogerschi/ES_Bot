@@ -757,8 +757,24 @@ class GridStrategy:
                 print(f"  ⚠️ Order {order_id} not found - removing from pending")
                 del self.pending_orders[order_id]
                 continue
-            if trade.orderStatus.status == 'Filled' and trade.fills:
-                fill_price = trade.fills[-1].execution.price
+            filled_qty_so_far = int(trade.orderStatus.filled)
+            order_terminal = trade.orderStatus.status in ['Filled', 'Cancelled', 'ApiCancelled', 'Inactive']
+
+            # -----------------------------------------------------------------
+            # Partial-fill safety net — added 2026-09-02. A limit entry order
+            # can partially fill (e.g. 8 of 10 contracts) and then time out or
+            # get cancelled for the remainder. The order's overall status
+            # becomes 'Cancelled', not 'Filled' — the old code treated any
+            # non-'Filled' terminal status as "nothing happened" and deleted
+            # the pending order entirely, silently abandoning a real,
+            # unprotected position at the broker with no SL/TP and no record
+            # of it anywhere in the bot. This branch fires whenever ANY
+            # quantity filled, regardless of what the order's overall status
+            # ended up being, and builds a bracket sized to what actually
+            # filled — before ever considering the order "handled."
+            # -----------------------------------------------------------------
+            if order_terminal and filled_qty_so_far > 0:
+                fill_price = self._weighted_avg_fill(trade.fills, pending.limit_price)
                 if self.config.use_grid_stop and self.grid_levels:
                     if pending.side == 'long':
                         last_level = min(self.grid_levels)
@@ -784,15 +800,10 @@ class GridStrategy:
                     else:
                         stop_loss = self._round_to_tick(fill_price + sl_pts)
                         take_profit = self._round_to_tick(fill_price - tp_pts)
-                filled_qty = int(trade.orderStatus.filled)
+                filled_qty = filled_qty_so_far
+                partial_note = f" [PARTIAL: {filled_qty} of {int(pending.size)} requested]" if filled_qty < int(pending.size) else ""
                 oca_group = f"exit_{order_id}_{int(datetime.now(UTC).timestamp())}"
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
-                # Stop-market, not stop-limit — 2026-08-19. A stop-limit order
-                # only fills within its limit price; if price gaps through the
-                # stop trigger by more than stop_limit_offset_pts, it's left
-                # open and unfilled while price keeps moving away (observed
-                # live). Stop-market has no limit — it triggers and takes
-                # whatever the market gives, which is what an SL is for.
                 stop_trade = await self.broker.place_stop_market_order(
                     stop_action, filled_qty, stop_loss, oca_group=oca_group)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
@@ -823,21 +834,27 @@ class GridStrategy:
                 self.positions.append(position)
                 self.position_count += 1
                 del self.pending_orders[order_id]
-                print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id})")
+                print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id}){partial_note}")
                 print(f"     📊 Bracket placed: SL #{stop_order_id} @ {stop_loss:.2f} | TP #{tp_order_id} @ {take_profit:.2f}")
                 print(f"     Trail activates @ +{trail_activation_pts:.1f} pts")
-            elif trade.orderStatus.status in ['Cancelled', 'ApiCancelled', 'Inactive']:
-                print(f"  ❌ Order {order_id} cancelled/expired - removing from pending")
+            elif order_terminal:
+                print(f"  ❌ Order {order_id} cancelled/expired with no fill - removing from pending")
                 del self.pending_orders[order_id]
             else:
                 age_seconds = (datetime.now(UTC) - pending.submit_time).total_seconds()
                 if age_seconds > 120:
-                    print(f"  ⏰ Order {order_id} timed out after {age_seconds:.0f}s - cancelling")
+                    print(f"  ⏰ Order {order_id} timed out after {age_seconds:.0f}s - cancelling remainder")
                     try:
                         self.broker.ib.cancelOrder(trade.order)
                     except:
                         pass
-                    del self.pending_orders[order_id]
+                    # NOTE: do NOT delete pending_orders[order_id] here. If any
+                    # quantity had already filled before the timeout, deleting
+                    # now would orphan it with no bracket — exactly the bug
+                    # described above. Leave it tracked; the next poll will see
+                    # the order's final status (Filled or Cancelled) and the
+                    # branches above will correctly build a bracket for
+                    # whatever filled, or clean up if truly nothing filled.
 
     def _weighted_avg_fill(self, fills, fallback: float) -> float:
         if not fills:

@@ -1,0 +1,23 @@
+2026-09-02 10:01:47 | ERROR    | Error 10141, reqId -1: Paper trading disclaimer must first be accepted for API connection.
+2026-09-02 10:01:47 | ERROR    | Peer closed connection. clientId 10 already in use?
+2026-09-02 10:01:47 | ERROR    | Exception in callback _ProactorBasePipeTransport._call_connection_lost(None)
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost(None)>
+Traceback (most recent call last):
+  File "C:\Python312\Lib\asyncio\events.py", line 84, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Python312\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+2026-09-02 10:01:50 | ERROR    | API connection failed: TimeoutError()
+Logging to: es_bot_20260902_100146.log
+
+============================================================
+📈 MODE: SCALP
+   • 10 contract(s) max
+   • Grid entries only
+   • Trailing stop enabled
+   • SL: ~8 pts | TP: ~12 pts | Trail activates: +6 pts
+   • Best for: Normal sessions, choppy/ranging opens
+============================================================
+
+Error: 
