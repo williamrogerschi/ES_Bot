@@ -230,6 +230,32 @@ class StrategyConfig:
     regime_range_pct_short: float = 0.70     # price must be in top 30% of range to short
     regime_range_pct_long: float = 0.30      # price must be in bottom 30% of range to long
     regime_range_lookback: int = 30          # bars to define the current range
+    # -------------------------------------------------------------------------
+    # Persistent-trend filter — added 2026-09-03. regime_lookback_bars=20 is
+    # short enough that a genuinely sustained directional run (seen live:
+    # 12+ consecutive bullish bars, ~18+ min, RSI 50-90 the whole way) can
+    # stay locked on RANGING the entire time, since the 5 regime signals only
+    # look at the recent short window. That let a ranging-mode mean-reversion
+    # SHORT fire directly against real, ongoing buying pressure. This filter
+    # is independent of the regime label itself: if enough of the last N raw
+    # trend bars are strongly one-directional, block the opposite-direction
+    # ranging entry for that bar, regardless of what regime says.
+    # Note: an earlier raw-trend veto in ranging mode was removed 8/14 for
+    # blocking far more good trades than bad (193 blocks vs 5 real ones) —
+    # that version reacted to near-single-bar noise. This one only fires on
+    # a genuinely sustained run (10 of the last 15 bars), which is a
+    # different, narrower condition — but watch for the same over-blocking
+    # failure mode if it starts suppressing too many entries.
+    # -------------------------------------------------------------------------
+    use_persistent_trend_filter: bool = False
+    persistent_trend_lookback: int = 15
+    # Threshold validated against the 25 August pattern trades: at 14, the
+    # 12 blocked trades were net -9.75 pts (a losing subset) while the 13
+    # allowed through went 11W/2L for +60.75 pts — better than the ungated
+    # baseline (+51.00 over all 25). Lower thresholds (10-13) blocked a much
+    # larger share of genuine winners along with the losers; see chat for
+    # the full threshold sweep.
+    persistent_trend_threshold: int = 14
     use_grid_stop: bool = False
     grid_stop_buffer_pts: float = 6.0
 
@@ -320,6 +346,7 @@ def get_scalp_config() -> StrategyConfig:
         use_session_low_short_filter=True,
         session_low_short_buffer=10.0,
         session_low_short_hours=2.0,
+        use_persistent_trend_filter=True,  # added 2026-09-03, see field comment
     )
 
 
@@ -436,6 +463,7 @@ def get_scalp_robust_config() -> StrategyConfig:
         use_session_high_long_filter=True,
         session_high_long_buffer=10.0,
         session_high_long_hours=2.0,
+        use_persistent_trend_filter=True,  # added 2026-09-03, see field comment
     )
 
 
