@@ -193,10 +193,20 @@ class IBKRBroker:
 
     async def place_stop_market_order(self, action: str, quantity: int,
                                        stop_price: float, oca_group: str = None,
-                                       oca_type: int = 1) -> Optional[Trade]:
+                                       oca_type: int = 1,
+                                       trail_trigger: float = None,
+                                       trail_amount: float = None) -> Optional[Trade]:
         """Stop-market order — triggers at stop_price, fills at market.
         Used for SL brackets to avoid stop-limit orders getting stuck unfilled
         when price gaps through the stop trigger by more than the limit offset.
+
+        Native trail (added 2026-10-01): pass trail_trigger + trail_amount to make
+        this an IBKR adjustable stop. It rests as a normal stop at stop_price; the
+        moment trail_trigger trades, IBKR converts it server-side into a TRAIL
+        order trailing by trail_amount. IBKR tracks every tick, so the trail
+        follows intrabar wicks instead of the bot chasing them a bar late (the
+        9/30 and 10/1 failures: trail armed off a bar high after price had
+        already pulled back, putting the stop through market = instant fill).
         """
         if not self.contract:
             raise RuntimeError("Contract not set")
@@ -211,10 +221,20 @@ class IBKRBroker:
         if oca_group:
             order.ocaGroup = oca_group
             order.ocaType = oca_type
+        trail_note = ""
+        if trail_trigger is not None and trail_amount is not None:
+            order.triggerPrice = trail_trigger
+            order.adjustedOrderType = 'TRAIL'
+            # Initial stop of the converted trail = trigger -/+ trail distance
+            order.adjustedStopPrice = (trail_trigger - trail_amount) if action == 'SELL' \
+                                      else (trail_trigger + trail_amount)
+            order.adjustedTrailingAmount = trail_amount
+            order.adjustableTrailingUnit = 0   # 0 = points, 1 = percent
+            trail_note = f" [ADJ→TRAIL @ {trail_trigger:.2f}, {trail_amount:.2f}pt]"
         trade = self.ib.placeOrder(self.contract, order)
         self._open_orders[order.orderId] = trade
         oca_note = f" [OCA:{oca_group}]" if oca_group else ""
-        print(f"  📤 Stop-Market {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId}){oca_note}")
+        print(f"  📤 Stop-Market {action} {quantity} @ {stop_price:.2f} submitted (ID: {order.orderId}){oca_note}{trail_note}")
         await asyncio.sleep(0.1)
         return trade
 

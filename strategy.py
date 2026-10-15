@@ -804,8 +804,19 @@ class GridStrategy:
                 partial_note = f" [PARTIAL: {filled_qty} of {int(pending.size)} requested]" if filled_qty < int(pending.size) else ""
                 oca_group = f"exit_{order_id}_{int(datetime.now(UTC).timestamp())}"
                 stop_action = 'SELL' if pending.side == 'long' else 'BUY'
+                # Native trail: IBKR converts the SL into a TRAIL server-side once
+                # the activation price trades. Falls back to the bar-based trail
+                # in _check_exits if use_native_trail is False on the config.
+                trail_trigger = None
+                trail_amount = None
+                if self._trail_on_atr(pending.entry_atr) and self._native_trail():
+                    act = self.config.trailing_activation_pts
+                    trail_trigger = self._round_to_tick(fill_price + act if pending.side == 'long'
+                                                        else fill_price - act)
+                    trail_amount = self.config.trailing_distance_pts
                 stop_trade = await self.broker.place_stop_market_order(
-                    stop_action, filled_qty, stop_loss, oca_group=oca_group)
+                    stop_action, filled_qty, stop_loss, oca_group=oca_group,
+                    trail_trigger=trail_trigger, trail_amount=trail_amount)
                 stop_order_id = stop_trade.order.orderId if stop_trade else None
                 tp_action = 'SELL' if pending.side == 'long' else 'BUY'
                 tp_trade = await self.broker.place_limit_order(
@@ -836,7 +847,12 @@ class GridStrategy:
                 del self.pending_orders[order_id]
                 print(f"  ✅ FILL CONFIRMED: {pending.side.upper()} @ {fill_price:.2f} (order {order_id}){partial_note}")
                 print(f"     📊 Bracket placed: SL #{stop_order_id} @ {stop_loss:.2f} | TP #{tp_order_id} @ {take_profit:.2f}")
-                print(f"     Trail activates @ +{trail_activation_pts:.1f} pts")
+                if trail_trigger is not None:
+                    print(f"     Trail activates @ {trail_trigger:.2f} (+{trail_activation_pts:.1f} pts) — IBKR-side native trail")
+                elif self._trail_on_atr(pending.entry_atr):
+                    print(f"     Trail activates @ +{trail_activation_pts:.1f} pts")
+                else:
+                    print(f"     Trail: off (ATR {pending.entry_atr or 0:.2f} < {self.config.atr_high_volatility_threshold}) — riding bracket to TP/SL")
             elif order_terminal:
                 print(f"  ❌ Order {order_id} cancelled/expired with no fill - removing from pending")
                 del self.pending_orders[order_id]
@@ -855,6 +871,26 @@ class GridStrategy:
                     # the order's final status (Filled or Cancelled) and the
                     # branches above will correctly build a bracket for
                     # whatever filled, or clean up if truly nothing filled.
+
+    def _trail_on_atr(self, atr) -> bool:
+        """Trail only in high vol (2026-10-15). Fixed 7.5/1.5 trail vs a 3x ATR TP:
+        at normal ATR the trigger fires 65-80% of the way to TP, and 19 of 20 such
+        trail exits (Aug-Oct) went on to hit TP anyway (~72 pts left behind). At
+        ATR >= the high-vol threshold the TP is far enough out that the trail
+        protects real gains. Set trail_high_vol_only=False to trail every trade."""
+        if not self.config.use_trailing_stop:
+            return False
+        if not getattr(self.config, 'trail_high_vol_only', True):
+            return True
+        return (atr or 0) >= self.config.atr_high_volatility_threshold
+
+    def _trail_on(self, position) -> bool:
+        return self._trail_on_atr(position.entry_atr)
+
+    def _native_trail(self) -> bool:
+        """IBKR-side trailing (adjustable stop). Defaults ON; set
+        use_native_trail=False on the config to revert to the bar-based trail."""
+        return getattr(self.config, 'use_native_trail', True)
 
     def _weighted_avg_fill(self, fills, fallback: float) -> float:
         if not fills:
@@ -894,7 +930,12 @@ class GridStrategy:
             if position.stop_order_id and position.stop_order_id in self.broker._filled_orders:
                 filled_trade = self.broker._filled_orders[position.stop_order_id]
                 exit_price = self._weighted_avg_fill(filled_trade.fills, position.stop_loss)
-                exit_reason = "Trailing Stop" if position.trailing_activated else "Stop Loss"
+                # Native trail can convert + fill inside a bar before the bot ever sees
+                # the activation level, so trailing_activated may still be False.
+                # A stop-order exit in profit can only be the trail.
+                in_profit = (exit_price > position.entry_price) if position.side == 'long' \
+                            else (exit_price < position.entry_price)
+                exit_reason = "Trailing Stop" if (position.trailing_activated or in_profit) else "Stop Loss"
                 order_to_cancel = position.tp_order_id
                 del self.broker._filled_orders[position.stop_order_id]
             elif position.tp_order_id and position.tp_order_id in self.broker._filled_orders:
@@ -948,8 +989,17 @@ class GridStrategy:
                 profit_pts = position.highest_price - position.entry_price
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
-                if self.config.use_trailing_stop and not position.trailing_activated and profit_pts >= trail_activation:
+                if self._trail_on(position) and self._native_trail():
+                    # IBKR owns the trail. Bookkeeping only: label + estimated stop for display.
+                    if profit_pts >= trail_activation:
+                        if not position.trailing_activated:
+                            print(f"  🔄 NATIVE TRAIL ARMED (IBKR-side) @ +{profit_pts:.2f}pts")
+                        position.trailing_activated = True
+                        position.trailing_stop = self._round_to_tick(position.highest_price - trail_distance)
+                elif self._trail_on(position) and not position.trailing_activated and profit_pts >= trail_activation:
                     new_stop = self._round_to_tick(position.highest_price - trail_distance)
+                    # Never place a sell stop at/above market (instant trigger)
+                    new_stop = min(new_stop, self._round_to_tick(current_price - 0.25))
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
                         confirmed = True
@@ -962,8 +1012,9 @@ class GridStrategy:
                             print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
                         else:
                             print(f"  ⚠️ Trail activation failed — IBKR did not confirm stop move. Will retry next bar.")
-                elif self.config.use_trailing_stop and position.trailing_activated:
+                elif self._trail_on(position) and position.trailing_activated:
                     new_stop = self._round_to_tick(position.highest_price - trail_distance)
+                    new_stop = min(new_stop, self._round_to_tick(current_price - 0.25))
                     if new_stop > position.stop_loss:
                         old_stop = position.stop_loss
                         position.stop_loss = new_stop
@@ -977,8 +1028,16 @@ class GridStrategy:
                 profit_pts = position.entry_price - position.lowest_price
                 trail_activation = self.config.trailing_activation_pts
                 trail_distance    = self.config.trailing_distance_pts
-                if self.config.use_trailing_stop and not position.trailing_activated and profit_pts >= trail_activation:
+                if self._trail_on(position) and self._native_trail():
+                    if profit_pts >= trail_activation:
+                        if not position.trailing_activated:
+                            print(f"  🔄 NATIVE TRAIL ARMED (IBKR-side) @ +{profit_pts:.2f}pts")
+                        position.trailing_activated = True
+                        position.trailing_stop = self._round_to_tick(position.lowest_price + trail_distance)
+                elif self._trail_on(position) and not position.trailing_activated and profit_pts >= trail_activation:
                     new_stop = self._round_to_tick(position.lowest_price + trail_distance)
+                    # Never place a buy stop at/below market (instant trigger)
+                    new_stop = max(new_stop, self._round_to_tick(current_price + 0.25))
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
                         confirmed = True
@@ -991,8 +1050,9 @@ class GridStrategy:
                             print(f"  🔄 TRAILING ACTIVATED @ +{profit_pts:.2f}pts | Stop: {old_stop:.2f} → {new_stop:.2f}")
                         else:
                             print(f"  ⚠️ Trail activation failed — IBKR did not confirm stop move. Will retry next bar.")
-                elif self.config.use_trailing_stop and position.trailing_activated:
+                elif self._trail_on(position) and position.trailing_activated:
                     new_stop = self._round_to_tick(position.lowest_price + trail_distance)
+                    new_stop = max(new_stop, self._round_to_tick(current_price + 0.25))
                     if new_stop < position.stop_loss:
                         old_stop = position.stop_loss
                         position.stop_loss = new_stop
@@ -1152,14 +1212,14 @@ class GridStrategy:
             else:
                 unrealized_pnl = (pos.entry_price - self.last_price) * int(pos.size) * 50
                 profit_pts = pos.entry_price - (pos.lowest_price or self.last_price)
-            if self.config.use_trailing_stop and pos.trailing_activated:
+            if self._trail_on(pos) and pos.trailing_activated:
                 active_stop = pos.trailing_stop
                 stop_label = "Trail"
             else:
                 active_stop = pos.stop_loss
                 stop_label = "SL"
             status = f"  📍 {pos.side.upper()} @ {pos.entry_price:.2f} | {stop_label}: {active_stop:.2f} | TP: {pos.take_profit:.2f} | P&L: ${unrealized_pnl:+,.2f}"
-            if self.config.use_trailing_stop:
+            if self._trail_on(pos):
                 if pos.trailing_activated:
                     status += f" | 🔒 Trailing"
                 else:
