@@ -68,8 +68,12 @@ class IBKRBroker:
         print(f"→ Fetching historical bars ({duration}, {bar_size})...")
         bars = await self.ib.reqHistoricalDataAsync(
             contract=self.contract, endDateTime='', durationStr=duration,
-            barSizeSetting=bar_size, whatToShow='TRADES', useRTH=False, formatDate=1
+            barSizeSetting=bar_size, whatToShow='TRADES', useRTH=False, formatDate=2
         )
+        # formatDate=2 (changed 2026-11-02) = epoch seconds -> tz-aware UTC in
+        # ib_insync, no matter the TWS version or time zone. formatDate=1 returns
+        # TWS-local time: newer TWS tags the zone (fine), older TWS sends it
+        # naive and the line below would have stamped Eastern time as UTC.
         if not bars:
             print("  ⚠️ No historical bars returned")
             return []
@@ -81,6 +85,14 @@ class IBKRBroker:
             result.append({"time": dt, "open": bar.open, "high": bar.high,
                            "low": bar.low, "close": bar.close, "volume": bar.volume})
         print(f"✓ Loaded {len(result)} historical bars")
+        # Timestamp sanity check: last history bar should be ~1 min old.
+        first, last = result[0]['time'], result[-1]['time']
+        lag_min = (datetime.now(UTC) - last).total_seconds() / 60
+        print(f"  History spans {first.astimezone(CENTRAL):%m-%d %H:%M} -> {last.astimezone(CENTRAL):%m-%d %H:%M} CT "
+              f"(last bar {lag_min:.0f} min old)")
+        if abs(lag_min) > 10:
+            print("  ⚠️ Last history bar is more than 10 min off from now. Fine on weekends/after "
+                  "hours, but during the session it means bar timestamps are wrong.")
         return result
 
     def _on_rt_bar(self, bars, has_new_bar: bool):

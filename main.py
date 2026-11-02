@@ -74,9 +74,17 @@ def print_banner(config):
               f"{config.trailing_distance_pts} pts ({'IBKR-side' if native else 'bar-based'})")
     else:
         print("   • Trailing stop: off")
-    if getattr(config, 'use_persistent_trend_filter', False):
-        print(f"   • Persistent-trend filter: {config.persistent_trend_threshold}/"
-              f"{config.persistent_trend_lookback} bars")
+    # (Persistent-trend banner line removed 2026-11-02: that filter isn't in strategy.py.)
+    usd = getattr(config, 'daily_loss_limit_usd', 12000.0)
+    if usd and usd > 0:
+        print(f"   • Daily loss limit: ${usd:,.0f} (no new entries after)")
+    else:
+        print(f"   • Daily loss limit: {config.max_loss_per_day_pct}% of equity")
+    if getattr(config, 'use_trend_day_lockout', True):
+        print(f"   • Trend-day lockout: {getattr(config, 'trend_day_min_move', 30.0):.0f}+ pts from 8:30 open, "
+              f"clean >= {getattr(config, 'trend_day_min_clean', 0.5)}, from 9:30 CT")
+    if getattr(config, 'use_trend_ride_shadow', True):
+        print("   • Trend ride: SHADOW (logged, not traded)")
     print("=" * 60)
 
 
@@ -105,6 +113,8 @@ async def main():
                 if strategy.last_reset_day != bar['time'].day:
                     strategy.daily_pnl = 0.0
                     strategy.last_reset_day = bar['time'].day
+
+            strategy.seed_rth_from_history(historical_bars)
 
             if strategy.indicators.calculate_all(strategy.bars):
                 strategy.current_trend = strategy._determine_trend()

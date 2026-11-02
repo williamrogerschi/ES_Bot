@@ -63,6 +63,19 @@ class GridStrategy:
         self._session_high: float = float('-inf')
         self._session_high_date: Optional[int] = None
 
+        # RTH (8:30-15:00 CT) open/high/low for the trend-day flag (added 2026-11-02).
+        # Separate from _session_high/_session_low on purpose: those drive the
+        # existing range-position logic and stay untouched.
+        self._rth_date = None
+        self._rth_open: Optional[float] = None
+        self._rth_first_bar_time = None
+        self._rth_high: float = float('-inf')
+        self._rth_low: float = float('inf')
+        self._trend_day: int = 0              # +1 up, -1 down, 0 none
+        self._rsi_hist: deque = deque(maxlen=6)
+        self._ride_signals_today: int = 0
+        self._ride_signal_date = None
+
         # Market regime detection
         self._regime_trend_history: deque     = deque(maxlen=20)  # raw trend per bar
         self._regime_confirmed_history: deque = deque(maxlen=20)  # confirmed trend per bar
@@ -714,6 +727,8 @@ class GridStrategy:
         print(f"       {' | '.join(results)}")
 
     async def _enter_long(self, level: float, rsi: float, trend: TrendState):
+        if self._trend_lockout_blocks('long'):
+            return
         level = self._round_to_tick(level)
         size = self._calculate_position_size(level)
         atr = self.indicators.cache.get('atr', 0)
@@ -737,6 +752,8 @@ class GridStrategy:
         print(f"     ⏳ Order {order_id} PENDING - awaiting fill confirmation")
 
     async def _enter_short(self, level: float, rsi: float, trend: TrendState):
+        if self._trend_lockout_blocks('short'):
+            return
         level = self._round_to_tick(level)
         size = self._calculate_position_size(level)
         atr = self.indicators.cache.get('atr', 0)
@@ -1135,13 +1152,105 @@ class GridStrategy:
         print(f"     Daily P&L: ${self.daily_pnl:+,.2f} | Equity: ${self.equity:,.2f}")
 
     def _check_daily_loss_limit(self) -> bool:
+        # Dollar limit (added 2026-11-02). 12000 = ~24 pts at 10 ES. Set
+        # daily_loss_limit_usd=0 in config to fall back to the old % limit.
+        usd = getattr(self.config, 'daily_loss_limit_usd', 12000.0)
+        if usd and usd > 0:
+            return self.daily_pnl <= -usd
         max_loss = self.config.initial_equity * (self.config.max_loss_per_day_pct / 100)
         return self.daily_pnl <= -max_loss
+
+    # -------------------------------------------------------------------------
+    # TREND-DAY FLAG / LOCKOUT / SHADOW RIDE (added 2026-11-02)
+    # Backtest Aug-Nov (51 days): bot was -116 pts on 8 trend days, +159 on
+    # range days. Lockout = stop trading against the day once price is
+    # trend_day_min_move pts from the 8:30 open AND net move / day range >=
+    # trend_day_min_clean, checked from 9:30 CT. +45 pts since Aug, +2.5 in
+    # Aug-Sep (doesn't hurt the good fades). Ride signals are logged only.
+    # -------------------------------------------------------------------------
+    def _update_rth(self, bar: Dict) -> None:
+        ct = bar['time'].astimezone(CENTRAL)
+        hm = (ct.hour, ct.minute)
+        if not ((8, 30) <= hm < (15, 0)):
+            return
+        if self._rth_date != ct.date():
+            self._rth_date = ct.date()
+            self._rth_open = bar['open']
+            self._rth_first_bar_time = ct.strftime('%H:%M')
+            self._rth_high = bar['high']
+            self._rth_low = bar['low']
+            self._trend_day = 0
+            if self._rth_first_bar_time != '08:30':
+                print(f"  ⚠️ RTH open taken from {self._rth_first_bar_time} CT bar ({self._rth_open:.2f}), not 08:30. Trend-day flag is approximate today")
+        else:
+            self._rth_high = max(self._rth_high, bar['high'])
+            self._rth_low = min(self._rth_low, bar['low'])
+
+    def seed_rth_from_history(self, bars: List[Dict]) -> None:
+        # Call once at startup with the warm-up bars so a late start still
+        # knows today's 8:30 open and the day's high/low so far.
+        for b in bars:
+            self._update_rth(b)
+        if self._rth_open is not None and self._rth_date == datetime.now(CENTRAL).date():
+            print(f"✓ RTH seeded: open {self._rth_open:.2f} ({self._rth_first_bar_time} CT) | "
+                  f"high {self._rth_high:.2f} | low {self._rth_low:.2f}")
+
+    def _update_trend_day(self, bar: Dict) -> None:
+        ct = bar['time'].astimezone(CENTRAL)
+        rsi = self.indicators.cache.get('rsi', 50)
+        prior_rsi = list(self._rsi_hist)[-5:]
+        self._rsi_hist.append(rsi)
+        if self._rth_open is None or self._rth_date != ct.date():
+            return
+        start = getattr(self.config, 'trend_day_start_ct', (9, 30))
+        min_move = getattr(self.config, 'trend_day_min_move', 30.0)
+        min_clean = getattr(self.config, 'trend_day_min_clean', 0.5)
+        net = bar['close'] - self._rth_open
+        rng = self._rth_high - self._rth_low
+        clean = abs(net) / rng if rng > 0 else 0.0
+        flag = 0
+        if (ct.hour, ct.minute) >= tuple(start) and abs(net) >= min_move and clean >= min_clean:
+            flag = 1 if net > 0 else -1
+        if flag != self._trend_day:
+            if flag:
+                print(f"  🚩 TREND DAY {'UP' if flag > 0 else 'DOWN'} flagged | {net:+.2f} from open {self._rth_open:.2f} | clean {clean:.2f}")
+            else:
+                print(f"  🏳️ Trend-day flag cleared | {net:+.2f} from open | clean {clean:.2f}")
+            self._trend_day = flag
+
+        # Shadow ride: log where a with-trend pullback entry would go. Never trades.
+        if not getattr(self.config, 'use_trend_ride_shadow', True) or not flag or len(self.bars) < 2:
+            return
+        if self._ride_signal_date != ct.date():
+            self._ride_signal_date = ct.date()
+            self._ride_signals_today = 0
+        if (ct.hour, ct.minute) >= (14, 30) or not prior_rsi:
+            return
+        prev = self.bars[-2]
+        atr = self.indicators.cache.get('atr', 0)
+        if flag < 0 and max(prior_rsi) >= 45 and bar['close'] < prev['low']:
+            side = 'SHORT'
+        elif flag > 0 and min(prior_rsi) <= 55 and bar['close'] > prev['high']:
+            side = 'LONG'
+        else:
+            return
+        self._ride_signals_today += 1
+        print(f"  👻 RIDE SIGNAL {side} @ {bar['close']:.2f} | ATR {atr:.2f} | shadow only (signal #{self._ride_signals_today} today)")
+
+    def _trend_lockout_blocks(self, side: str) -> bool:
+        if not getattr(self.config, 'use_trend_day_lockout', True) or not self._trend_day:
+            return False
+        if (side == 'long' and self._trend_day < 0) or (side == 'short' and self._trend_day > 0):
+            print(f"  🚩 Trend-day lockout: no {side.upper()} against a trend day "
+                  f"{'UP' if self._trend_day > 0 else 'DOWN'}")
+            return True
+        return False
 
     async def on_new_bar(self, bar: Dict):
         self.bars.append(bar)
         self.last_price = bar['close']
         current_day = bar['time'].day
+        self._update_rth(bar)
 
         # Track session low for short filter
         if self._session_low_date != current_day:
@@ -1180,6 +1289,7 @@ class GridStrategy:
 
         self._update_regime_data(bar)
         self._current_regime = self._detect_regime()
+        self._update_trend_day(bar)
 
         if self.config.use_5m_filter:
             self._5m_bar_buffer.append(bar)
@@ -1254,8 +1364,10 @@ class GridStrategy:
             if getattr(self, '_halt_logged_day', None) != bar['time'].date():
                 self._halt_logged_day = bar['time'].date()
                 print(f"  🛑 MAX DAILY LOSS REACHED (${self.daily_pnl:+,.2f}) — no new entries today")
-            for position in list(self.positions):
-                await self._close_position(position, bar['close'], "Max Daily Loss")
+            # Any open position keeps its IBKR bracket. The old code market-closed
+            # 1 contract here without cancelling the bracket, which would desync.
+            await self._check_exits(bar)
+            await self._check_eod_close(bar)
             return
         await self._check_exits(bar)
         await self._check_eod_close(bar)
