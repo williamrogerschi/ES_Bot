@@ -487,12 +487,33 @@ class GridStrategy:
                 return
             print(f"  🔲 Regime: RANGING | Range pos: {range_pct:.0%} | RSI: {rsi:.1f}")
 
+            def _shadow_tags(direction: str) -> None:
+                """SHADOW ONLY (added 2026-11-02) — logs what two candidate filters
+                WOULD block, never blocks. edge_tracker.py reads the tags.
+                  persistent:   14+ of last 15 raw-trend bars against the fade
+                  rangeextreme: entry at session extreme (<=5% long / >=95% short)
+                Backtest Aug-Nov: both helped Oct-Nov, hurt Aug-Sep. Let forward
+                data decide before turning either into a real filter."""
+                tags = []
+                hist = list(self._regime_trend_history)[-15:]
+                against = ([TrendState.STRONG_BEARISH, TrendState.MODERATE_BEARISH] if direction == 'long'
+                           else [TrendState.STRONG_BULLISH, TrendState.MODERATE_BULLISH])
+                n_against = sum(1 for t in hist if t in against)
+                if len(hist) == 15 and n_against >= 14:
+                    tags.append(f"persistent {n_against}/15")
+                if (direction == 'long' and range_pct <= 0.05) or (direction == 'short' and range_pct >= 0.95):
+                    tags.append(f"rangeextreme {range_pct:.0%}")
+                if tags:
+                    print(f"  👻 SHADOW WOULD BLOCK {direction.upper()}: {' | '.join(tags)}")
+
             if rsi > self.config.regime_ranging_rsi_short and range_pct > self.config.regime_range_pct_short:
                 if not _short_blocked_by_session_low():
+                    _shadow_tags('short')
                     await self._enter_short(current_price, rsi, TrendState.SIDEWAYS)
 
             elif rsi < self.config.regime_ranging_rsi_long and range_pct < self.config.regime_range_pct_long:
                 if not _long_blocked_by_session_high():
+                    _shadow_tags('long')
                     await self._enter_long(current_price, rsi, TrendState.SIDEWAYS)
 
         else:
@@ -1229,7 +1250,10 @@ class GridStrategy:
                         status += f" | +{pts_to_activate:.1f} to trail"
             print(status)
         if self._check_daily_loss_limit():
-            print(f"  🛑 MAX DAILY LOSS REACHED - Closing all positions")
+            # Print once per day instead of every bar (added 2026-11-02)
+            if getattr(self, '_halt_logged_day', None) != bar['time'].date():
+                self._halt_logged_day = bar['time'].date()
+                print(f"  🛑 MAX DAILY LOSS REACHED (${self.daily_pnl:+,.2f}) — no new entries today")
             for position in list(self.positions):
                 await self._close_position(position, bar['close'], "Max Daily Loss")
             return
